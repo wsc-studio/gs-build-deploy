@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.DOCKERUSERNAME }}
           password: ${{ secrets.DOCKERPASSWORD }}
           logout: false
-      - name: Deploy
+      - name: build image
         uses: docker/build-push-action@v3
         with:
           context: ./ym_portal
@@ -34,3 +34,19 @@ jobs:
           push: true
           tags: registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest
           labels: ym_portal
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.YM_SSH_PRIVATE_KEY }}
+      - name: Run commands on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@38.54.119.93:22222 '
+            docker pull registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest;
+            docker stop ym_portal || true;
+            docker rm ym_portal || true;
+            docker run --name ym_portal -i -t -d -p 3001:3000 -v /home/ym-portal-server/db:/app/db -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHA:0:8};
+            docker images -a | grep ym_portal | awk '{print $3}' | xargs -r docker rmi || true;
+          '
