@@ -36,9 +36,10 @@ jobs:
           labels: ym_portal
   deploy:
     runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.8.1
+        uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.YM_SSH_PRIVATE_KEY }}
       - name: Run commands on remote server
