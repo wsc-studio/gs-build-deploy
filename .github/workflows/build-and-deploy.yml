@@ -11,13 +11,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
       - name: Checkout private GitLab repository
-      env:
-        GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-      run: |
-        git clone https://git.wsc.tech/yangf/ym_portal.git ym_portal
-        cd ym_portal
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: ".github/clone_repos.sh"
+      - name: Login to Aliyun Docker Hub
+        uses: docker/login-action@v2.2.0
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.DOCKERUSERNAME }}
+          password: ${{ secrets.DOCKERPASSWORD }}
+          logout: false
       - name: Deploy
         uses: docker/build-push-action@v3
         with:
