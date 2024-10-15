@@ -28,8 +28,8 @@ jobs:
       - name: Deploy
         uses: docker/build-push-action@v3
         with:
-          context: .
-          file: Dockerfile
+          context: ./ym_portal
+          file: ym_portal/Dockerfile
           platforms: linux/amd64
           push: true
           tags: registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest
