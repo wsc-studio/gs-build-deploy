@@ -47,6 +47,6 @@ jobs:
             docker pull registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest;
             docker stop ym_portal || true;
             docker rm ym_portal || true;
-            docker run --name ym_portal -i -t -d -p 3001:3000 -v /home/ym-portal-server/db:/app/db -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:${CI_COMMIT_REF_NAME}_${CI_COMMIT_SHA:0:8};
+            docker run --name ym_portal -i -t -d -p 3001:3000 -v /home/ym-portal-server/db:/app/db -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest;
             docker images -a | grep ym_portal | awk '{print $3}' | xargs -r docker rmi || true;
           '
