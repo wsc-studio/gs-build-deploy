@@ -16,6 +16,7 @@ RUN cargo install sqlx-cli --no-default-features --features rustls,sqlite,postgr
 
 RUN cargo install just sd mdbook mdbook-admonish
 
+RUN rustup component add clippy
 
 ARG version=v20.18.0
 RUN apt update -y && apt install curl -y \
@@ -23,5 +24,19 @@ RUN apt update -y && apt install curl -y \
 && tar -xzvf node.tar.gz && rm node.tar.gz \
 && echo "export PATH=$PATH:/node-$version-linux-x64/bin" >> /root/.bashrc
 
-RUN 
+#容器中安装ssh
+RUN apt-get install -y openssh-server
+RUN mkdir -p /var/run/sshd
+RUN mkdir -p /root/.ssh
+#
+RUN echo "root:aHGlkfh!81!@736" | chpasswd
+RUN sed -ri 's/session requiredpam_loginuid.so/#session required pam_loginuid.so/g' /etc/pam.d/sshd
+RUN sed -i "s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g" /etc/ssh/sshd_config
+# 把做好的authorized_keys拷到容器内authorized_keys中去
+ADD authorized_keys /root/.ssh/authorized_keys
+ADD  run.sh  /run.sh
+RUN  chmod  755 /run.sh
+EXPOSE  22
+#容器启动后直接执行
+CMD  ["/run.sh"]
 # RUN sudo chown -R vscode /usr/local/cargo/
