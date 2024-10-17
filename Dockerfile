@@ -14,7 +14,7 @@ RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ca
 
 RUN cargo binstall sqlx-cli -qy
 
-RUN cargo install just, sd, mdbook, mdbook-admonish
+RUN cargo install just sd mdbook mdbook-admonish
 
 
 ARG version=v20.18.0
