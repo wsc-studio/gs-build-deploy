@@ -18,5 +18,13 @@ ENV RUSTUP_HOME=/usr/local/rustup
 ENV RUST_VERSION=1.82.0
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=/usr/local/cargo/bin:$PATH
+
+# 创建或修改.cargo/config.toml文件，设置镜像源为清华大学
+RUN mkdir -p /usr/local/cargo && \
+    echo '[source.tuna]' > /usr/local/cargo/config.toml && \
+    echo 'registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"' >> /usr/local/cargo/config.toml && \
+    echo '[source.tuna.src]' >> /usr/local/cargo/config.toml && \
+    echo 'registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"' >> /usr/local/cargo/config.toml
+
 #容器启动后直接执行
 CMD  ["/run.sh"]
