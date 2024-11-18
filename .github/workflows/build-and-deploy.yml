@@ -44,7 +44,7 @@ jobs:
           ssh-private-key: ${{ secrets.YM_SSH_PRIVATE_KEY }}
       - name: Run commands on remote server
         run: |
-          ssh -o StrictHostKeyChecking=no root@38.54.119.93:22222 '
+          ssh -o StrictHostKeyChecking=no root@38.54.119.93 -p 22222 '
             docker pull registry.cn-hangzhou.aliyuncs.com/gskj/ym_portal:latest;
             docker stop ym_portal || true;
             docker rm ym_portal || true;
