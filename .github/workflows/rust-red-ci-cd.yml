@@ -17,7 +17,7 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           git clone -b docker --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
-          cd ym_portal
+          cd rust-red
       - name: Login to Aliyun Docker Hub
         uses: docker/login-action@v2.2.0
         with:
