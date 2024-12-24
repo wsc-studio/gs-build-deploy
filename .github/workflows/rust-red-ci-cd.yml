@@ -34,3 +34,19 @@ jobs:
           push: true
           tags: registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
           labels: rust-red
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+      - name: Run commands on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 '
+            docker pull registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest;
+            docker stop rust-red-core || true;
+            docker rm rust-red-core || true;
+            docker run -itd --name rust-red-core -p 7024:8080 -v /etc/localtime:/etc/localtime:ro -v /home/rust-red-core/config:/app/config -v /home/rust-red-core/flow:/app/flow -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest;
+            docker images -a | grep rust-red | awk '{print $3}' | xargs -r docker rmi || true;
