@@ -69,7 +69,7 @@ jobs:
             # Exit the here-doc to use scp locally
             exit
           EOF
-          scp -o StrictHostKeyChecking=no -P 30006 -r ./build ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
+          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             echo "Deployment completed."
           EOF
