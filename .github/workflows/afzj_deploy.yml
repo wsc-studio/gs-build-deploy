@@ -6,6 +6,15 @@ run-name: ${{ github.actor }} is building and deploying the React project.
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      version:
+        description: "版本信息"
+        required: true
+        default: "0.1.0"
+      branch:
+        description: "gitlab上的分支名称"
+        required: false
+        default: "dev"
 # 工作流程任务（通常含有一个或多个步骤）
 jobs:
   build:
@@ -16,7 +25,7 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b dev --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/AFZJ/rust-red-web.git rust-red-web
+          git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/AFZJ/rust-red-web.git rust-red-web
           cd rust-red-web
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -49,26 +58,12 @@ jobs:
           ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
       - name: Deploy to Server
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
-            # Assuming you have a directory for your web app, e.g., /home/nginx/webroot/afzj-frontend
-            # Create a timestamped backup directory
-            mkdir -p /home/nginx/webroot/afzj-frontend/backups
-            TIMESTAMP=$(date +%Y%m%d%H%M%S)
-            BACKUP_DIR="/home/nginx/webroot/afzj-frontend/backups/\$TIMESTAMP"
-            mkdir \$BACKUP_DIR
-
-            # Copy current files to backup (if directory exists)
-            if [ -d "/home/nginx/webroot/afzj-frontend/current" ]; then
-              cp -r /home/nginx/webroot/afzj-frontend/current/* \$BACKUP_DIR
-            fi
-
-            # Exit the here-doc to use scp locally
-            exit
-          EOF
           scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/uploading
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             rm -rf /home/nginx/webroot/afzj-frontend/current
             mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/afzj-frontend/current
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            tar -czvf ${{ inputs.branch }}_${{ inputs.version }}\$TIMESTAMP.tar.gz current
             docker restart nginx
             echo "Deployment completed."
           EOF
