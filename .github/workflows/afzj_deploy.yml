@@ -65,7 +65,7 @@ jobs:
             # Exit the here-doc to use scp locally
             exit
           EOF
-          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
+          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/uploading
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             rm -rf /home/nginx/webroot/afzj-frontend/current
             mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/afzj-frontend/current
