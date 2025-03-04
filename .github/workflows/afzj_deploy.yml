@@ -62,14 +62,13 @@ jobs:
               cp -r /home/nginx/webroot/afzj-frontend/current/* \$BACKUP_DIR
             fi
 
-            # Create or clear the current directory
-            rm -rf /home/nginx/webroot/afzj-frontend/current
-            mkdir -p /home/nginx/webroot/afzj-frontend/current
-
             # Exit the here-doc to use scp locally
             exit
           EOF
           scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
+            rm -rf /home/nginx/webroot/afzj-frontend/current
+            mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/afzj-frontend/current
+            docker restart nginx
             echo "Deployment completed."
           EOF
