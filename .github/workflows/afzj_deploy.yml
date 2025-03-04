@@ -60,7 +60,7 @@ jobs:
 
             # Copy the new build to the server
             exit # Exit the here-doc to use scp locally
-EOF
+          EOF
           scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             echo "Deployment completed."
