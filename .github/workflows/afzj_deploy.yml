@@ -63,7 +63,7 @@ jobs:
             rm -rf /home/nginx/webroot/afzj-frontend/current
             mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/afzj-frontend/current
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
-            tar -czvf ${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz current
+            tar -czvf /home/nginx/webroot/afzj-frontend/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz /home/nginx/webroot/afzj-frontend/current
             docker restart nginx
             echo "Deployment completed."
           EOF
