@@ -28,6 +28,11 @@ jobs:
       - name: Build Project
         working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-artifact
+          path: rust-red-web/build # Correct path to the build directory
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -60,10 +65,10 @@ jobs:
             rm -rf /home/nginx/webroot/afzj-frontend/current
             mkdir -p /home/nginx/webroot/afzj-frontend/current
 
-            # Copy the new build to the server
-            exit # Exit the here-doc to use scp locally
+            # Exit the here-doc to use scp locally
+            exit
           EOF
-          scp -o StrictHostKeyChecking=no -P 30006 -r ./build ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current # Correct path to build directory
+          scp -o StrictHostKeyChecking=no -P 30006 -r ./build ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             echo "Deployment completed."
           EOF
