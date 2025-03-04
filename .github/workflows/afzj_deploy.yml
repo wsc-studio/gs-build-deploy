@@ -29,6 +29,7 @@ jobs:
         working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
       - name: Upload artifact
+        working-directory: ./rust-red-web # Specify the working directory
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact
