@@ -23,14 +23,16 @@ jobs:
         with:
           node-version: '22' # Or your desired Node.js version
       - name: Install Dependencies
+        working-directory: ./rust-red-web # Specify the working directory
         run: yarn install
       - name: Build Project
+        working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact
-          path: build/ #  Adjust 'build' if your build output directory is different
+          path: rust-red-web/build/ #  Adjust 'build' if your build output directory is different
 
   deploy:
     runs-on: ubuntu-latest
@@ -67,7 +69,7 @@ jobs:
             # Copy the new build to the server
             exit # Exit the here-doc to use scp locally
           EOF
-          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current
+          scp -o StrictHostKeyChecking=no -P 30006 -r ./build ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/current # Correct path to build directory
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             echo "Deployment completed."
           EOF
