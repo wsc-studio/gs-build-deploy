@@ -61,7 +61,7 @@ jobs:
           scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/guanshi-frontend/uploading
           ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
             rm -rf /home/nginx/webroot/guanshi-frontend/current
-            mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/guanshi-frontend/current
+            mv /home/nginx/webroot/guanshi-frontend/uploading /home/nginx/webroot/guanshi-frontend/current
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
             tar -czvf /home/nginx/webroot/guanshi-frontend/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz /home/nginx/webroot/guanshi-frontend/current
             docker restart nginx
