@@ -1,0 +1,69 @@
+# 工作流名称
+name: Build and Deploy React Project
+# 工作流运行时显示名称
+run-name: ${{ github.actor }} is building and deploying the React project.
+# 怎样触发工作流
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本信息"
+        required: true
+        default: "0.1.0"
+      branch:
+        description: "gitlab上的分支名称"
+        required: false
+        default: "dev"
+# 工作流程任务（通常含有一个或多个步骤）
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/AFZJ/rust-red-web.git rust-red-web
+          cd rust-red-web
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22' # Or your desired Node.js version
+      - name: Install Dependencies
+        working-directory: ./rust-red-web # Specify the working directory
+        run: yarn install
+      - name: Build Project
+        working-directory: ./rust-red-web # Specify the working directory
+        run: yarn build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: rust-red-web/dist # Correct path to the build directory
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: ./
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+      - name: Deploy to Server
+        run: |
+          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/afzj-frontend/uploading
+          ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
+            rm -rf /home/nginx/webroot/afzj-frontend/current
+            mv /home/nginx/webroot/afzj-frontend/uploading /home/nginx/webroot/afzj-frontend/current
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            tar -czvf /home/nginx/webroot/afzj-frontend/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz /home/nginx/webroot/afzj-frontend/current
+            docker restart nginx
+            echo "Deployment completed."
+          EOF
