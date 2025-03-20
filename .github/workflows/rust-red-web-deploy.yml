@@ -1,7 +1,7 @@
 # 工作流名称
 name: 贯石管理端 Frontend CI/CD
 # 工作流运行时显示名称
-run-name: ${{ github.actor }} 贯石管理端(Frontend) CI/CD.
+run-name: ${{ github.event.inputs.run_name }}
 # 怎样触发工作流
 on:
   # Allows you to run this workflow manually from the Actions tab
@@ -11,6 +11,9 @@ on:
         description: "版本信息"
         required: true
         # default: "0.1.0"
+      run_name:
+        description: "运行名--用于关联执行编码pipeline_id"
+        required: true
       branch:
         description: "gitlab上的分支名称"
         required: false
