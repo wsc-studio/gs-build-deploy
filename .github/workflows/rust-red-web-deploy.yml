@@ -10,11 +10,11 @@ on:
       version:
         description: "版本信息"
         required: true
-        default: "0.1.0"
+        # default: "0.1.0"
       branch:
         description: "gitlab上的分支名称"
         required: false
-        default: "dev"
+        # default: "dev"
 # 工作流程任务（通常含有一个或多个步骤）
 jobs:
   build:
