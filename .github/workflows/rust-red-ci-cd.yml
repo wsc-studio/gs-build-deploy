@@ -54,7 +54,7 @@ jobs:
             docker rm rust-record-core || true
             docker run -itd --name rust-red-core -p 7024:8080 -v /etc/localtime:/etc/localtime:ro -v /home/rust-red-core/config:/app/config -v /home/rust-red-core/data:/app/data -v /home/rust-red-core/flow:/app/flow -v /home/rust-afzj/upload-image:/app/upload-image -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
             docker run -itd --name rust-afzj-core -p 7025:8080 -v /etc/localtime:/etc/localtime:ro -v /home/rust-afzj/config:/app/config -v /home/rust-afzj/data:/app/data -v /home/rust-afzj/flow:/app/flow -v /home/rust-afzj/upload-image:/app/upload-image -e TZ=Asia/Shanghai registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
-            docker run -itd --name rust-afzj-core \
+            docker run -itd --name rust-record-core \
                 -p 7026:8080 \
                 -v /etc/localtime:/etc/localtime:ro \
                 -v /home/rust-record/config:/app/config \
