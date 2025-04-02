@@ -50,10 +50,10 @@ jobs:
       - name: Install Dependencies
         working-directory: ./rust-red-web # Specify the working directory
         run: |
+          host_url=$(grep -oP "^exports\.ApiHost = ['\"]\Khttp\S+(?=['\"])" src/config.js | tail -1)
+          # 使用更灵活的正则表达式同时匹配单引号和双引号
+          sed -i -E "s|exports\.ApiHost = ['\"]${host_url}['\"]|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
           yarn install
-          # 替换配置文件中的host_url
-          host_url=$(grep -oP "^exports\.ApiHost = ['\"]\Khttp\S+(?=['\"])" src/config.js)
-          sed -i "s|exports.ApiHost = \"${host_url}\"|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
       - name: Build Project
         working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
