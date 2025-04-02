@@ -73,7 +73,7 @@ jobs:
       - name: Deploy to Server
         run: |
           scp -o StrictHostKeyChecking=no -P ${{ github.event.inputs.port }} -r ./ ${{ github.event.inputs.server }}:${{ github.event.inputs.path }}/uploading
-          ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p ${{ github.event.inputs.port }} << EOF
+          ssh -o StrictHostKeyChecking=no ${{ github.event.inputs.server }} -p ${{ github.event.inputs.port }} << EOF
             rm -rf ${{ github.event.inputs.path }}/current
             mv ${{ github.event.inputs.path }}/uploading ${{ github.event.inputs.path }}/current
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
