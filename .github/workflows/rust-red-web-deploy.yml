@@ -1,5 +1,5 @@
 # 工作流名称
-name: 贯石管理端 Frontend CI/CD
+name: 贯石管理端 CI/CD
 # 工作流运行时显示名称
 run-name: guanshi_pipeline_${{ github.event.inputs.version }}_${{ github.event.inputs.branch }}_${{ github.event.inputs.run_name }}
 # 怎样触发工作流
@@ -16,8 +16,24 @@ on:
         required: true
       branch:
         description: "gitlab上的分支名称"
-        required: false
+        required: true
         # default: "dev"
+      port:
+        description: "发布服务器的端口"
+        required: true
+      server:
+        description: "发布服务器格式如：user@xxx.com"
+        required: true
+      path:
+        description: "发布到服务器的绝对路径 格式如：/root/xxx/xxx_web"
+        required: true
+      host_url:
+        description: "替换配置文件中的host_url"
+        required: true
+      git:
+        description: "git地址"
+        required: true
+
 # 工作流程任务（通常含有一个或多个步骤）
 jobs:
   build:
@@ -28,15 +44,19 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red-web.git rust-red-web
+          git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@${{ inputs.git }} rust-red-web
           cd rust-red-web
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22' # Or your desired Node.js version
+          node-version: "22" # Or your desired Node.js version
       - name: Install Dependencies
         working-directory: ./rust-red-web # Specify the working directory
-        run: yarn install
+        run: |
+          host_url=$(grep -oP "^exports\.ApiHost = ['\"]\Khttp\S+(?=['\"])" src/config.js | tail -1)
+          # 使用更灵活的正则表达式同时匹配单引号和双引号
+          sed -i -E "s|exports\.ApiHost = ['\"]${host_url}['\"]|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
+          yarn install
       - name: Build Project
         working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
@@ -58,15 +78,15 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ github.event.inputs.branch == 'dev' && secrets.DEV_SSH_PRIVATE_KEY || github.event.inputs.branch == 'master' && secrets.PROD_SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
       - name: Deploy to Server
         run: |
-          scp -o StrictHostKeyChecking=no -P 30006 -r ./ ubuntu@wsc.tech:/home/nginx/webroot/guanshi-frontend/uploading
-          ssh -o StrictHostKeyChecking=no ubuntu@wsc.tech -p 30006 << EOF
-            rm -rf /home/nginx/webroot/guanshi-frontend/current
-            mv /home/nginx/webroot/guanshi-frontend/uploading /home/nginx/webroot/guanshi-frontend/current
+          scp -o StrictHostKeyChecking=no -P ${{ github.event.inputs.port }} -r ./ ${{ github.event.inputs.server }}:${{ github.event.inputs.path }}/uploading
+          ssh -o StrictHostKeyChecking=no ${{ github.event.inputs.server }} -p ${{ github.event.inputs.port }} << EOF
+            rm -rf ${{ github.event.inputs.path }}/current
+            mv ${{ github.event.inputs.path }}/uploading ${{ github.event.inputs.path }}/current
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
-            tar -czvf /home/nginx/webroot/guanshi-frontend/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz /home/nginx/webroot/guanshi-frontend/current
+            tar -czvf ${{ github.event.inputs.path }}/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz ${{ github.event.inputs.path }}/current
             docker restart nginx
             echo "Deployment completed."
           EOF
