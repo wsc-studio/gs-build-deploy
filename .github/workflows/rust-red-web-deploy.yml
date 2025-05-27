@@ -59,6 +59,7 @@ jobs:
           sed -i -E "s|exports\.ApiHost = ['\"]${host_url}['\"]|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
           sed -i -E "s|exports\.Version = ['\"]${version_str}['\"]|exports.Version = \"${{ inputs.version }}-${{ inputs.branch }}\"|g" src/config.js
           yarn install
+          sentry-cli login --auth-token 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
       - name: Build Project
         working-directory: ./rust-red-web # Specify the working directory
         run: yarn build
