@@ -51,8 +51,10 @@ jobs:
         working-directory: ./rust-red-web # Specify the working directory
         run: |
           host_url=$(grep -oP "^exports\.ApiHost = ['\"]\Khttp\S+(?=['\"])" src/config.js | tail -1)
+          version_str=$(grep -oP "^exports\.Version = ['\"]\K\S+(?=['\"])" src/config.js | tail -1)
           # 使用更灵活的正则表达式同时匹配单引号和双引号
           sed -i -E "s|exports\.ApiHost = ['\"]${host_url}['\"]|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
+          sed -i -E "s|exports\.Version = ['\"]${version_str}['\"]|exports.Version = \"${{ inputs.version }}-${{ inputs.branch }}\"|g" src/config.js
           yarn install
       - name: Build Project
         working-directory: ./rust-red-web # Specify the working directory
