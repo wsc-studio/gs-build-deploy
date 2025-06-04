@@ -1,0 +1,59 @@
+name: Build And Deploy IOT api server
+run-name: ${{ github.actor }} is Build And Deploy IOT api server
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b dev --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/iot/switch_api_server.git iot-api
+          cd iot-api
+      - name: Login to Aliyun Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.DOCKERUSERNAME }}
+          password: ${{ secrets.DOCKERPASSWORD }}
+          logout: false
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./iot-api
+          file: iot-api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: registry.cn-hangzhou.aliyuncs.com/gskj/iot-api-server:latest
+          labels: iot-api-server
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY  }}
+      - name: Run commands on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@git.wsc.tech -p 22 << 'EOF'
+            docker pull registry.cn-hangzhou.aliyuncs.com/gskj/iot-api-server:latest
+            docker stop iot-api-server || true
+            docker rm iot-api-server || true
+
+            docker run --name iot-api-server -i -t -d \
+              -p 7018:7018 \
+              -v /etc/localtime:/etc/localtime:ro \
+              -v /home/iot-api-server/log:/app/build/log \
+              -v /home/iot-api-server/config.json:/app/build/config.json \
+              -v /home/iot-api-server/node-red:/app/build/.node-red \
+              -e TZ=Asia/Shanghai \
+              --log-opt max-size=100m \
+              --log-opt max-file=3 \
+              registry.cn-hangzhou.aliyuncs.com/gskj/iot-api-server:latest
+           
+            docker images -a | grep iot-api-server | awk '{print $3}' | xargs -r docker rmi || true
+          EOF
