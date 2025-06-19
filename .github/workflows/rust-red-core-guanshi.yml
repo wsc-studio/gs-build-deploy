@@ -80,6 +80,6 @@ jobs:
                 -e TZ=Asia/Shanghai \
                 --log-opt max-size=500m \
                 --log-opt max-file=3 \
-                registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:{{ inputs.version }}
+                registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:${{ inputs.version }}
             docker images -a | grep rust-red:${{ inputs.version }} | awk '{print $3}' | xargs -r docker rmi || true
           EOF
