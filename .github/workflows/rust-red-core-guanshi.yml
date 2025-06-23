@@ -76,7 +76,7 @@ jobs:
                 -v /home/rust-red-core/config:/app/config \
                 -v /home/rust-red-core/data:/app/data \
                 -v /home/rust-red-core/flow:/app/flow \
-                -v /home/rust-afzj/upload-image:/app/upload-image \
+                -v /home/rust-red-core/upload-image:/app/upload-image \
                 -e TZ=Asia/Shanghai \
                 --log-opt max-size=500m \
                 --log-opt max-file=3 \
