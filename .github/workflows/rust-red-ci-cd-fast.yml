@@ -49,6 +49,8 @@ jobs:
             docker rm rust-record-core || true
             docker stop rust-exhibition-hall || true
             docker rm rust-exhibition-hall || true
+            docker stop rust-lake || true
+            docker rm rust-lake || true
             
             docker run -itd --name rust-red-core --privileged=true \
                 -p 7024:8080 \
@@ -94,5 +96,18 @@ jobs:
                 --log-opt max-size=500m \
                 --log-opt max-file=3 \
                 registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
+
+            docker run -itd --name rust-lake --privileged=true \
+                -p 7028:8080 \
+                -v /etc/localtime:/etc/localtime:ro \
+                -v /home/rust-lake/config:/app/config \
+                -v /home/rust-lake/data:/app/data \
+                -v /home/rust-lake/flow:/app/flow \
+                -v /home/nginx/webroot/lake-frontend/upload-image:/app/upload-image \
+                -e TZ=Asia/Shanghai \
+                --log-opt max-size=500m \
+                --log-opt max-file=3 \
+                registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
+                
             docker images -a | grep rust-red | awk '{print $3}' | xargs -r docker rmi || true
           EOF
