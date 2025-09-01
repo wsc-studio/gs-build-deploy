@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./apiserver
-          file: apiserver/Dockerfile.fast
+          file: apiserver/Dockerfile
           platforms: linux/amd64
           push: true
           tags: registry.cn-hangzhou.aliyuncs.com/gskj/kzpipe-server:${{ inputs.version }}
