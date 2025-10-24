@@ -46,6 +46,7 @@ jobs:
         run: |
           git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/kzpipe/adminserver.git kzpipe-web
           cd kzpipe-web
+          rm -f .yarnrc
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
