@@ -1,5 +1,5 @@
 # 工作流名称
-name: 安飞之家管理端 CI/CD
+name: 智慧水务管理端 CI/CD
 # 工作流运行时显示名称
 run-name: guanshi_pipeline_${{ github.event.inputs.version }}_${{ github.event.inputs.branch }}_${{ github.event.inputs.run_name }}
 # 怎样触发工作流
