@@ -82,7 +82,7 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ github.event.inputs.branch == 'dev' && secrets.DEV_SSH_PRIVATE_KEY || github.event.inputs.branch == 'master' && secrets.PROD_SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ github.event.inputs.branch == 'dev' && secrets.DEV_SSH_PRIVATE_KEY || github.event.inputs.branch == 'master' && secrets.KZPROD_SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
       - name: Deploy to Server
         run: |
           scp -o StrictHostKeyChecking=no -P ${{ github.event.inputs.port }} -r ./ ${{ github.event.inputs.server }}:${{ github.event.inputs.path }}/uploading
