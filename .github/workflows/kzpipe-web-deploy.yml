@@ -60,6 +60,7 @@ jobs:
           sed -i -E "s|exports\.ApiHost = ['\"]${host_url}['\"]|exports.ApiHost = \"${{ inputs.host_url }}\"|g" src/config.js
           sed -i -E "s|exports\.Version = ['\"]${version_str}['\"]|exports.Version = \"${{ inputs.version }}-${{ inputs.branch }}\"|g" src/config.js
           yarn install
+          curl -sL https://sentry.io/get-cli/ | bash
       - name: Build Project
         working-directory: ./kzpipe-web # Specify the working directory
         run: yarn build
