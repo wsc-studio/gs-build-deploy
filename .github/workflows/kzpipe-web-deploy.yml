@@ -87,10 +87,16 @@ jobs:
         run: |
           scp -o StrictHostKeyChecking=no -P ${{ github.event.inputs.port }} -r ./ ${{ github.event.inputs.server }}:${{ github.event.inputs.path }}/uploading
           ssh -o StrictHostKeyChecking=no ${{ github.event.inputs.server }} -p ${{ github.event.inputs.port }} << EOF
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - begin rm"
             rm -rf ${{ github.event.inputs.path }}/current
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - begin mv"
             mv ${{ github.event.inputs.path }}/uploading ${{ github.event.inputs.path }}/current
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - begin tar"
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
             tar -czvf ${{ github.event.inputs.path }}/${{ inputs.branch }}_${{ inputs.version }}_$TIMESTAMP.tar.gz ${{ github.event.inputs.path }}/current
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - begin cp model"
+            find ${{ github.event.inputs.path }}/current/static/js -name "*.js" -type f -exec sed -i 's|https://market-assets.fra1.cdn.digitaloceanspaces.com|https://v3.kzpipe.cn/model|g' {} \;
+            cp -r ${{ github.event.inputs.path }}/model ${{ github.event.inputs.path }}/current
             docker restart nginx
             echo "Deployment completed."
           EOF
