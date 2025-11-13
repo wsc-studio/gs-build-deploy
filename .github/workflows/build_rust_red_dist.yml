@@ -1,4 +1,4 @@
-name: 贯石平台RustRed
+name: 贯石RustRed解压即食版本
 run-name: guanshi_pipeline_${{ github.event.inputs.version }}_${{ github.event.inputs.branch }}_${{ github.event.inputs.run_name }}
 on:
   workflow_dispatch:
@@ -39,6 +39,10 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
           git clone -b ${{ github.event.inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+      - name: Remove Cargo mirror config
+        run: |
+          rm -f .cargo/config.toml || true
+          rm -f rust-red/.cargo/config.toml || true
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -49,6 +53,8 @@ jobs:
           sudo apt-get install -y pkg-config libssl-dev build-essential
       - name: Build release binary
         working-directory: ./rust-red
+        env:
+          RUSTFLAGS: -C link-args=-rdynamic
         run: |
           cargo build --release -p rust-red-core --target x86_64-unknown-linux-gnu
       - name: Package artifact
