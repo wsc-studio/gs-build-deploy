@@ -59,17 +59,27 @@ jobs:
           RUSTFLAGS: -C link-args=-rdynamic
         run: |
           cargo build --release -p rust-red-core --target x86_64-unknown-linux-gnu
+      - name: Build plugins (cdylib)
+        working-directory: ./rust-red
+        env:
+          RUSTFLAGS: -C link-args=-rdynamic
+        run: |
+          cargo build --release -p basic-plugin --target x86_64-unknown-linux-gnu
+          cargo build --release -p guanshi-plugin --target x86_64-unknown-linux-gnu
       - name: Package artifact
         run: |
-          mkdir -p dist/bin
+          mkdir -p dist/bin dist/plugins dist/config dist/data
           cp rust-red/target/x86_64-unknown-linux-gnu/release/rust-red-core dist/bin/
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/libbasic_plugin.so dist/plugins/
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/libguanshi_plugin.so dist/plugins/
+          cp rust-red/config/config.toml dist/config/config.toml
           cat > dist/start.sh <<'SH'
           #!/usr/bin/env bash
           set -e
           BIN_DIR=$(cd "$(dirname "$0")" && pwd)/bin
           PORT=${PORT:-8080}
-          CONFIG_FILE=${CONFIG_FILE:-/home/rust-red-core/config/config.toml}
-          DATA_PATH=${DATA_PATH:-/home/rust-red-core/data}
+          CONFIG_FILE=${CONFIG_FILE:-./config/config.toml}
+          DATA_PATH=${DATA_PATH:-./data}
           exec "$BIN_DIR/rust-red-core" --port "$PORT" --config-file "$CONFIG_FILE" --data-path "$DATA_PATH"
           SH
           chmod +x dist/start.sh
