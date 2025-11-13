@@ -1,0 +1,73 @@
+name: 贯石平台RustRed
+run-name: guanshi_pipeline_${{ github.event.inputs.version }}_${{ github.event.inputs.branch }}_${{ github.event.inputs.run_name }}
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "版本信息"
+        required: true
+        # default: "0.1.0"
+      run_name:
+        description: "运行名--用于关联执行编码pipeline_id"
+        required: true
+      branch:
+        description: "gitlab上的分支名称"
+        required: true
+        # default: "dev"
+      port:
+        description: "发布服务器的端口"
+        required: true
+      server:
+        description: "发布服务器格式如：user@xxx.com"
+        required: true
+      path:
+        description: "发布到服务器的绝对路径 格式如：/root/xxx/xxx_web"
+        required: true
+      host_url:
+        description: "替换配置文件中的host_url"
+        required: true
+      git:
+        description: "git地址"
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b ${{ github.event.inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev build-essential
+      - name: Build release binary
+        working-directory: ./rust-red
+        run: |
+          cargo build --release -p rust-red-core --target x86_64-unknown-linux-gnu
+      - name: Package artifact
+        run: |
+          mkdir -p dist/bin
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/rust-red-core dist/bin/
+          cat > dist/start.sh <<'SH'
+          #!/usr/bin/env bash
+          set -e
+          BIN_DIR=$(cd "$(dirname "$0")" && pwd)/bin
+          PORT=${PORT:-8080}
+          CONFIG_FILE=${CONFIG_FILE:-/home/rust-red-core/config/config.toml}
+          DATA_PATH=${DATA_PATH:-/home/rust-red-core/data}
+          exec "$BIN_DIR/rust-red-core" --port "$PORT" --config-file "$CONFIG_FILE" --data-path "$DATA_PATH"
+          SH
+          chmod +x dist/start.sh
+          tar -czf rust-red-core_${{ inputs.version }}.tar.gz -C dist .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-red-core_${{ inputs.version }}
+          path: rust-red-core_${{ inputs.version }}.tar.gz
