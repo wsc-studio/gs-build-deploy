@@ -1,4 +1,4 @@
-name: 贯石RustRed解压即食版本
+name: 贯石RustRed解压即食版本-离线安装依赖
 run-name: guanshi_pipeline_${{ github.event.inputs.version }}_${{ github.event.inputs.branch }}_${{ github.event.inputs.run_name }}
 on:
   workflow_dispatch:
@@ -89,3 +89,41 @@ jobs:
         with:
           name: rust-red-core_${{ inputs.version }}
           path: rust-red-core_${{ inputs.version }}.tar.gz
+      - name: Prepare vendor offline deps
+        run: |
+          mkdir -p dist-vendor/vendor/debs dist-vendor/vendor/libreoffice
+          sudo apt-get update
+          sudo apt-get install -y --download-only \
+            ffmpeg \
+            libpq5 ca-certificates \
+            libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
+            less vim fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
+            libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
+            libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg
+          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs/ || true
+          wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.2_Linux_x86-64_deb.tar.gz \
+            https://download.documentfoundation.org/libreoffice/stable/25.2.2/deb/x86_64/LibreOffice_25.2.2_Linux_x86-64_deb.tar.gz
+          cat > dist-vendor/install-deps.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          BASE=$(cd "$(dirname "$0")" && pwd)
+          DEBS="$BASE/vendor/debs"
+          LIBO_DIR="$BASE/vendor/libreoffice"
+          sudo dpkg -i "$DEBS"/*.deb || true
+          for i in 1 2 3; do sudo dpkg -i "$DEBS"/*.deb || true; done
+          cd "$LIBO_DIR"
+          tar -xzf LibreOffice_*.tar.gz
+          sudo dpkg -i LibreOffice_*/DEBS/*.deb
+          sudo ldconfig
+          SH
+          chmod +x dist-vendor/install-deps.sh
+          cat > dist-vendor/env.sh <<'ENV'
+          export PATH="/opt/libreoffice25.2/program:${PATH}"
+          export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
+          ENV
+          tar -czf rust-red-vendor_${{ inputs.version }}.tar.gz -C dist-vendor .
+      - name: Upload vendor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-red-vendor_${{ inputs.version }}
+          path: rust-red-vendor_${{ inputs.version }}.tar.gz
