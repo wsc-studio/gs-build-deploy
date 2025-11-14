@@ -1,0 +1,215 @@
+name: RustRed Full Pipeline
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本信息
+        required: true
+      run_name:
+        description: 运行名--用于关联执行编码pipeline_id
+        required: true
+      branch:
+        description: gitlab上的分支名称
+        required: true
+      port:
+        description: 发布服务器的端口
+        required: true
+      server:
+        description: 发布服务器格式如：user@xxx.com
+        required: true
+      path:
+        description: 发布到服务器的绝对路径 格式如：/root/xxx/xxx_web
+        required: true
+      host_url:
+        description: 替换配置文件中的host_url
+        required: true
+      git:
+        description: git地址
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b ${{ inputs.branch }} --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+      - name: Remove Cargo mirror config
+        run: |
+          rm -f .cargo/config.toml || true
+          rm -f rust-red/.cargo/config.toml || true
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev build-essential \
+            ffmpeg libavutil-dev libavcodec-dev libavformat-dev libswscale-dev \
+            libavfilter-dev libswresample-dev libavdevice-dev
+      - name: Build release binary
+        working-directory: ./rust-red
+        env:
+          RUSTFLAGS: -C link-args=-rdynamic
+        run: |
+          cargo build --release -p rust-red-core --target x86_64-unknown-linux-gnu
+      - name: Build plugins (cdylib)
+        working-directory: ./rust-red
+        env:
+          RUSTFLAGS: -C link-args=-rdynamic
+        run: |
+          cargo build --release -p basic-plugin --target x86_64-unknown-linux-gnu
+          cargo build --release -p guanshi-plugin --target x86_64-unknown-linux-gnu
+      - name: Package artifact
+        run: |
+          mkdir -p dist/bin dist/plugins dist/config dist/data
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/rust-red-core dist/bin/
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/libbasic_plugin.so dist/plugins/
+          cp rust-red/target/x86_64-unknown-linux-gnu/release/libguanshi_plugin.so dist/plugins/
+          cp rust-red/config/config.toml dist/config/config.toml
+          printf "%s" "${{ inputs.version }}" > dist/VERSION
+          cat > dist/start.sh <<'SH'
+          #!/usr/bin/env bash
+          set -e
+          BIN_DIR=$(cd "$(dirname "$0")" && pwd)/bin
+          PORT=${PORT:-8080}
+          CONFIG_FILE=${CONFIG_FILE:-./config/config.toml}
+          DATA_PATH=${DATA_PATH:-./data}
+          exec "$BIN_DIR/rust-red-core" --port "$PORT" --config-file "$CONFIG_FILE" --data-path "$DATA_PATH"
+          SH
+          chmod +x dist/start.sh
+          tar -czf rust-red-core.tar.gz -C dist .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-red-core
+          path: rust-red-core.tar.gz
+
+  vendor:
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare vendor offline deps
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts
+          source /etc/os-release || true
+          if [ "${ID:-}" = "debian" ] || echo "${ID_LIKE:-}" | grep -qi debian; then
+            sudo sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list || true
+          fi
+          if [ "${ID:-}" = "ubuntu" ] || echo "${ID_LIKE:-}" | grep -qi ubuntu; then
+            sudo apt-get update
+            sudo apt-get install -y software-properties-common
+            sudo add-apt-repository -y universe || true
+            sudo add-apt-repository -y multiverse || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y --download-only \
+            ffmpeg \
+            libpq5 ca-certificates \
+            libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
+            less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
+            libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
+            libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget \
+            ttf-mscorefonts-installer
+          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs/ || true
+          wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz \
+            https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
+          COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
+          for f in "${COREFONTS[@]}"; do
+            wget -O "dist-vendor/vendor/msfonts/$f" "https://downloads.sourceforge.net/corefonts/$f" || true
+          done
+          cat > dist-vendor/install-deps.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          BASE=$(cd "$(dirname "$0")" && pwd)
+          DEBS="$BASE/vendor/debs"
+          LIBO_DIR="$BASE/vendor/libreoffice"
+          MSF="$BASE/vendor/msfonts"
+          if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
+          $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
+          $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
+          $SUDO dpkg -i "$DEBS"/*.deb || true
+          for i in 1 2 3; do $SUDO dpkg -i "$DEBS"/*.deb || true; done
+          cd "$LIBO_DIR"
+          tar -xzf LibreOffice_*.tar.gz
+          $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
+          $SUDO ldconfig
+          SH
+          chmod +x dist-vendor/install-deps.sh
+          cat > dist-vendor/env.sh <<'ENV'
+          export PATH="/opt/libreoffice25.2/program:${PATH}"
+          export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
+          ENV
+          printf "%s" "$VERSION" > dist-vendor/VERSION
+          tar -czf rust-red-vendor.tar.gz -C dist-vendor .
+      - name: Upload vendor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-red-vendor
+          path: rust-red-vendor.tar.gz
+      - name: Validate offline install in container
+        run: |
+          docker pull ubuntu:22.04
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh"
+
+  image:
+    runs-on: ubuntu-22.04
+    needs: [build, vendor]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-red-core
+          path: artifacts
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-red-vendor
+          path: artifacts
+      - name: Prepare image context
+        run: |
+          mkdir -p image-context/dist image-context/dist-vendor
+          tar -xzf artifacts/rust-red-core.tar.gz -C image-context/dist
+          tar -xzf artifacts/rust-red-vendor.tar.gz -C image-context/dist-vendor
+          cat > image-context/Dockerfile <<'DOCKER'
+          FROM ubuntu:22.04
+          COPY dist-vendor /opt/vendor
+          RUN /opt/vendor/install-deps.sh
+          COPY dist /opt/rust-red
+          WORKDIR /opt/rust-red
+          ENV PATH="/opt/libreoffice25.2/program:${PATH}"
+          ENV PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
+          ENTRYPOINT ["./start.sh"]
+          DOCKER
+      - name: Derive image name and tag
+        id: meta
+        run: |
+          NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          V="${{ inputs.version }}"
+          TAG=$(printf "%s" "$V" | sed 's/[^A-Za-z0-9._-]/_/g')
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Login to Aliyun Docker Hub
+        uses: docker/login-action@v2.2.0
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.DOCKERUSERNAME }}
+          password: ${{ secrets.DOCKERPASSWORD }}
+          logout: false
+      - name: Build and push image
+        uses: docker/build-push-action@v3
+        with:
+          context: image-context
+          file: image-context/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:${{ steps.meta.outputs.tag }}
+          labels: rust-red
