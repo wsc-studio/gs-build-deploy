@@ -10,9 +10,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: Sanitize version
+        id: sanitize
+        run: |
+          VERSION="${{ inputs.version }}"
+          SAFE_VERSION=$(printf "%s" "$VERSION" | sed 's/[^A-Za-z0-9._-]/_/g')
+          echo "version_safe=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
       - name: Prepare vendor offline deps
         env:
           VERSION: ${{ inputs.version }}
+          VERSION_SAFE: ${{ steps.sanitize.outputs.version_safe }}
         run: |
           mkdir -p dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts
           source /etc/os-release || true
@@ -64,12 +71,12 @@ jobs:
           export PATH="/opt/libreoffice25.2/program:${PATH}"
           export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
           ENV
-          tar -czf rust-red-vendor_${VERSION}.tar.gz -C dist-vendor .
+          tar -czf "rust-red-vendor_${VERSION_SAFE}.tar.gz" -C dist-vendor .
       - name: Upload vendor artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust-red-vendor_${{ inputs.version }}
-          path: rust-red-vendor_${{ inputs.version }}.tar.gz
+          name: rust-red-vendor_${{ steps.sanitize.outputs.version_safe }}
+          path: rust-red-vendor_${{ steps.sanitize.outputs.version_safe }}.tar.gz
       - name: Validate offline install in container
         run: |
           docker pull ubuntu:22.04
