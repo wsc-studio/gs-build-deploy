@@ -52,7 +52,25 @@ jobs:
           make
           sudo make install
           cd -
-          luarocks download --rock-dir dist-vendor/vendor/luarocks --deps --lua-version=5.4 luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid lua-mongo
+          mkdir -p dist-vendor/vendor/luarocks/rocks
+          MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid"
+          for m in $MODS; do luarocks install "$m" --lua-version=5.4 || exit 1; luarocks pack "$m" || exit 1; done
+          mv *.rock dist-vendor/vendor/luarocks/rocks/
+          TMPM=/tmp/mongo-c-driver-1.27.6
+          mkdir -p "$TMPM"
+          tar -xzf dist-vendor/vendor/mongo/mongo-c-driver-1.27.6.tar.gz -C /tmp
+          cd "$TMPM" || cd /tmp/mongo-c-driver-1.27.6
+          SOURCE=$(pwd)
+          BUILD="$SOURCE/_build"
+          PREFIX="$SOURCE/_install"
+          cmake -S "$SOURCE" -B "$BUILD" -D ENABLE_EXTRA_ALIGNMENT=OFF -D ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -D CMAKE_BUILD_TYPE=RelWithDebInfo -D ENABLE_MONGOC=ON
+          cmake --build "$BUILD" --config RelWithDebInfo --parallel
+          cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
+          export LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX"
+          luarocks install lua-mongo --lua-version=5.4 || exit 1
+          luarocks pack lua-mongo || exit 1
+          mv lua-mongo-*.rock dist-vendor/vendor/luarocks/rocks/
+          luarocks-admin make-manifest dist-vendor/vendor/luarocks
           cat > dist-vendor/install-deps.sh <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
