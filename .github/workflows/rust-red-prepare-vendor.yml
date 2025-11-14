@@ -35,6 +35,7 @@ jobs:
             less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
             libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
             libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget \
+            libreadline8 readline-common libncursesw6 libtinfo6 \
             lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
             ttf-mscorefonts-installer
           cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs/ || true
@@ -49,7 +50,7 @@ jobs:
           sudo apt-get install -y lua5.4 lua5.4-dev make gcc cmake pkg-config libssl-dev libpq-dev
           tar -xzf dist-vendor/vendor/luarocks/luarocks-3.11.1.tar.gz -C /tmp
           cd /tmp/luarocks-3.11.1
-          ./configure
+          ./configure --with-lua=/usr --with-lua-include=/usr/include/lua5.4
           make
           sudo make install
           cd -
@@ -98,7 +99,7 @@ jobs:
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
-          ./configure
+          ./configure --with-lua=/usr --with-lua-include=/usr/include/lua5.4
           make
           $SUDO make install
           luarocks --lua-version=5.4 config local_by_default true
