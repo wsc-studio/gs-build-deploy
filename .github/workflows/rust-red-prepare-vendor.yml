@@ -123,13 +123,13 @@ jobs:
           LIB_PREFIX="$PREFIX"
           luarocks install lua-mongo LIBBSON_DIR="$LIB_PREFIX" LIBBSON_INCDIR="$LIB_PREFIX/include" LIBBSON_LIBDIR="$LIB_PREFIX/lib" LIBMONGOC_DIR="$LIB_PREFIX" LIBMONGOC_INCDIR="$LIB_PREFIX/include" LIBMONGOC_LIBDIR="$LIB_PREFIX/lib" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1
           SH
-          chmod +x dist-vendor/install-deps.sh
-          cat > dist-vendor/env.sh <<'ENV'
+          chmod +x "$GITHUB_WORKSPACE/dist-vendor/install-deps.sh"
+          cat > "$GITHUB_WORKSPACE/dist-vendor/env.sh" <<'ENV'
           export PATH="/opt/libreoffice25.2/program:${PATH}"
           export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
           ENV
-          printf "%s" "$VERSION" > dist-vendor/VERSION
-          tar -czf rust-red-vendor.tar.gz -C dist-vendor .
+          printf "%s" "$VERSION" > "$GITHUB_WORKSPACE/dist-vendor/VERSION"
+          tar -czf "$GITHUB_WORKSPACE/rust-red-vendor.tar.gz" -C "$GITHUB_WORKSPACE/dist-vendor" .
       - name: Upload vendor artifact
         uses: actions/upload-artifact@v4
         with:
