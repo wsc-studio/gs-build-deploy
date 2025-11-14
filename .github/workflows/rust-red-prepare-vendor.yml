@@ -53,8 +53,9 @@ jobs:
           sudo make install
           cd -
           mkdir -p dist-vendor/vendor/luarocks/rocks
+          luarocks --lua-version=5.4 config local_by_default true
           MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid"
-          for m in $MODS; do luarocks install "$m" --lua-version=5.4 || exit 1; luarocks pack "$m" || exit 1; done
+          for m in $MODS; do PGSQL_INCDIR=/usr/include/postgresql LUA_INCDIR=/usr/include/lua5.4 luarocks install "$m" --lua-version=5.4 --local || exit 1; luarocks pack "$m" || exit 1; done
           mv *.rock dist-vendor/vendor/luarocks/rocks/
           TMPM=/tmp/mongo-c-driver-1.27.6
           mkdir -p "$TMPM"
@@ -67,7 +68,7 @@ jobs:
           cmake --build "$BUILD" --config RelWithDebInfo --parallel
           cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
           export LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX"
-          luarocks install lua-mongo --lua-version=5.4 || exit 1
+          LUA_INCDIR=/usr/include/lua5.4 luarocks install lua-mongo --lua-version=5.4 --local || exit 1
           luarocks pack lua-mongo || exit 1
           mv lua-mongo-*.rock dist-vendor/vendor/luarocks/rocks/
           luarocks-admin make-manifest dist-vendor/vendor/luarocks
@@ -90,6 +91,12 @@ jobs:
           tar -xzf LibreOffice_*.tar.gz
           $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
           $SUDO ldconfig
+          luarocks --lua-version=5.4 config local_by_default true
+          ROCKDIR="$LR_DIR"
+          PGSQL_INCDIR=/usr/include/postgresql
+          LUA_INCDIR=/usr/include/lua5.4
+          MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid lua-mongo"
+          for m in $MODS; do PGSQL_INCDIR="$PGSQL_INCDIR" LUA_INCDIR="$LUA_INCDIR" luarocks install "$m" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1; done
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
