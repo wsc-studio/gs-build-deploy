@@ -52,8 +52,8 @@ jobs:
           make
           sudo make install
           cd -
-          mkdir -p dist-vendor/vendor/luarocks/rocks
-          ROCKS_DIR="$GITHUB_WORKSPACE/dist-vendor/vendor/luarocks/rocks"
+          REPO_DIR="$GITHUB_WORKSPACE/dist-vendor/vendor/luarocks"
+          ROCKS_DIR="$REPO_DIR/rocks"
           mkdir -p "$ROCKS_DIR"
           luarocks --lua-version=5.4 config local_by_default true
           sudo ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
@@ -74,7 +74,7 @@ jobs:
           LUA_INCDIR=/usr/include/lua5.4 luarocks install lua-mongo LIBBSON_DIR="$PREFIX" LIBBSON_INCDIR="$PREFIX/include" LIBBSON_LIBDIR="$PREFIX/lib" LIBMONGOC_DIR="$PREFIX" LIBMONGOC_INCDIR="$PREFIX/include" LIBMONGOC_LIBDIR="$PREFIX/lib" --lua-version=5.4 --local || exit 1
           luarocks pack lua-mongo || exit 1
           mv lua-mongo-*.rock "$ROCKS_DIR"
-          luarocks-admin make-manifest dist-vendor/vendor/luarocks
+          luarocks-admin make-manifest "$REPO_DIR"
           cat > dist-vendor/install-deps.sh <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
