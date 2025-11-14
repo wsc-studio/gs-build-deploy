@@ -69,7 +69,7 @@ jobs:
           cmake --build "$BUILD" --config RelWithDebInfo --parallel
           cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
           export LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX"
-          LUA_INCDIR=/usr/include/lua5.4 luarocks install lua-mongo --lua-version=5.4 --local || exit 1
+          LUA_INCDIR=/usr/include/lua5.4 luarocks install lua-mongo LIBBSON_DIR="$PREFIX" LIBBSON_INCDIR="$PREFIX/include" LIBBSON_LIBDIR="$PREFIX/lib" LIBMONGOC_DIR="$PREFIX" LIBMONGOC_INCDIR="$PREFIX/include" LIBMONGOC_LIBDIR="$PREFIX/lib" --lua-version=5.4 --local || exit 1
           luarocks pack lua-mongo || exit 1
           mv lua-mongo-*.rock dist-vendor/vendor/luarocks/rocks/
           luarocks-admin make-manifest dist-vendor/vendor/luarocks
@@ -92,20 +92,20 @@ jobs:
           tar -xzf LibreOffice_*.tar.gz
           $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
           $SUDO ldconfig
-          luarocks --lua-version=5.4 config local_by_default true
-          ROCKDIR="$LR_DIR"
-          sudo ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
-          PGSQL_INCDIR=/usr/include/postgresql
-          PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu
-          LUA_INCDIR=/usr/include/lua5.4
-          MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid lua-mongo"
-          for m in $MODS; do luarocks install "$m" PGSQL_INCDIR="$PGSQL_INCDIR" PGSQL_LIBDIR="$PGSQL_LIBDIR" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1; done
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
           ./configure
           make
           $SUDO make install
+          luarocks --lua-version=5.4 config local_by_default true
+          ROCKDIR="$LR_DIR"
+          $SUDO ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
+          PGSQL_INCDIR=/usr/include/postgresql
+          PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu
+          LUA_INCDIR=/usr/include/lua5.4
+          MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid luasec"
+          for m in $MODS; do luarocks install "$m" PGSQL_INCDIR="$PGSQL_INCDIR" PGSQL_LIBDIR="$PGSQL_LIBDIR" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1; done
           cd "$MONGO_DIR"
           tar -xzf mongo-c-driver-*.tar.gz
           cd "$(ls -d mongo-c-driver-*/ | head -n1)"
@@ -116,13 +116,9 @@ jobs:
           cmake -S "$SOURCE" -B "$BUILD" -D ENABLE_EXTRA_ALIGNMENT=OFF -D ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -D CMAKE_BUILD_TYPE=RelWithDebInfo -D BUILD_VERSION="$VERSION" -D ENABLE_MONGOC=ON
           cmake --build "$BUILD" --config RelWithDebInfo --parallel
           $SUDO cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
-          export LIBBSON_DIR="$PREFIX"
-          export LIBMONGOC_DIR="$PREFIX"
-          ROCKDIR="$LR_DIR"
-          PGSQL_INCDIR=/usr/include/postgresql
-          LUA_INCDIR=/usr/include/lua5.4
-          MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid lua-mongo"
-          for m in $MODS; do PGSQL_INCDIR="$PGSQL_INCDIR" LUA_INCDIR="$LUA_INCDIR" $SUDO luarocks install "$m" --lua-version=5.4 --server="file://$ROCKDIR" --only-server || exit 1; done
+          $SUDO ldconfig
+          LIB_PREFIX="$PREFIX"
+          luarocks install lua-mongo LIBBSON_DIR="$LIB_PREFIX" LIBBSON_INCDIR="$LIB_PREFIX/include" LIBBSON_LIBDIR="$LIB_PREFIX/lib" LIBMONGOC_DIR="$LIB_PREFIX" LIBMONGOC_INCDIR="$LIB_PREFIX/include" LIBMONGOC_LIBDIR="$LIB_PREFIX/lib" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1
           SH
           chmod +x dist-vendor/install-deps.sh
           cat > dist-vendor/env.sh <<'ENV'
