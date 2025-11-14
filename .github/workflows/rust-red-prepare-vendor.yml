@@ -1,0 +1,25 @@
+name: RustRed Vendor Offline Deps
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本信息
+        required: true
+jobs:
+  vendor:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare vendor offline deps
+        uses: ./.github/actions/prepare-vendor
+        with:
+          version: ${{ inputs.version }}
+      - name: Upload vendor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-red-vendor_${{ inputs.version }}
+          path: rust-red-vendor_${{ inputs.version }}.tar.gz
+      - name: Validate offline install in container
+        run: |
+          docker pull ubuntu:22.04
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh"
