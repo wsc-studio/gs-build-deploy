@@ -54,8 +54,9 @@ jobs:
           cd -
           mkdir -p dist-vendor/vendor/luarocks/rocks
           luarocks --lua-version=5.4 config local_by_default true
+          sudo ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
           MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid"
-          for m in $MODS; do PGSQL_INCDIR=/usr/include/postgresql PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu LUA_INCDIR=/usr/include/lua5.4 luarocks install "$m" --lua-version=5.4 --local || exit 1; luarocks pack "$m" || exit 1; done
+          for m in $MODS; do luarocks install "$m" PGSQL_INCDIR=/usr/include/postgresql PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu LUA_INCDIR=/usr/include/lua5.4 --lua-version=5.4 --local || exit 1; luarocks pack "$m" || exit 1; done
           mv *.rock dist-vendor/vendor/luarocks/rocks/
           TMPM=/tmp/mongo-c-driver-1.27.6
           mkdir -p "$TMPM"
@@ -93,11 +94,12 @@ jobs:
           $SUDO ldconfig
           luarocks --lua-version=5.4 config local_by_default true
           ROCKDIR="$LR_DIR"
+          sudo ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
           PGSQL_INCDIR=/usr/include/postgresql
           PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu
           LUA_INCDIR=/usr/include/lua5.4
           MODS="luasql-postgres lua-cjson luaossl jsonschema luasocket luasystem uuid lua-mongo"
-          for m in $MODS; do PGSQL_INCDIR="$PGSQL_INCDIR" PGSQL_LIBDIR="$PGSQL_LIBDIR" LUA_INCDIR="$LUA_INCDIR" luarocks install "$m" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1; done
+          for m in $MODS; do luarocks install "$m" PGSQL_INCDIR="$PGSQL_INCDIR" PGSQL_LIBDIR="$PGSQL_LIBDIR" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1; done
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
