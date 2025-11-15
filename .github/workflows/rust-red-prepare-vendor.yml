@@ -28,14 +28,14 @@ jobs:
             sudo add-apt-repository -y multiverse || true
           fi
           sudo apt-get update
-          docker run --rm -v "$PWD/dist-vendor/vendor/debs:/out" ubuntu:22.04 bash -lc '
+          docker run --rm -v "$PWD/dist-vendor/vendor/debs:/out" debian:bullseye bash -lc '
             set -euo pipefail
+            echo "deb http://deb.debian.org/debian bullseye main contrib non-free" > /etc/apt/sources.list
+            echo "deb http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list
+            echo "deb http://security.debian.org/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list
+            echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list
             apt-get update
-            apt-get install -y software-properties-common
-            add-apt-repository -y universe || true
-            add-apt-repository -y multiverse || true
-            apt-get update
-            PKGS="ffmpeg libpq5 ca-certificates \
+            PKGS="ffmpeg libpq5 ca-certificates openssl \
               libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
               less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
               libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
@@ -43,8 +43,9 @@ jobs:
               libreadline8 readline-common libncursesw6 libtinfo6 \
               lua5.4 liblua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
               ttf-mscorefonts-installer cabextract libmspack0"
-            apt-get install -y --download-only --reinstall $PKGS
-            cp -a /var/cache/apt/archives/*.deb /out/
+            NAMES=$(apt-get -o APT::Install-Recommends=false --just-print install $PKGS | awk '/^Inst /{print $2}' | sort -u)
+            cd /out
+            apt-get download $NAMES
             apt-get install -y dpkg-dev
             (cd /out && dpkg-scanpackages . > Packages && gzip -k Packages)
           '
@@ -110,14 +111,14 @@ jobs:
           $SUDO apt-get update
           $SUDO apt-get install -y --no-install-recommends \
             ffmpeg \
-            libpq5 ca-certificates \
-            libavcodec58 libavformat58 libavutil56 libavdevice58 \
+            libpq5 ca-certificates openssl \
+            libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
             less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
             libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
             libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
             libreadline8 readline-common libncursesw6 libtinfo6 \
             lua5.4 liblua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
-            ttf-mscorefonts-installer
+            ttf-mscorefonts-installer cabextract libmspack0
           lua5.4 -v || true
           unzip -v || true
           $SUDO ldconfig
@@ -170,5 +171,5 @@ jobs:
           path: rust-red-vendor.tar.gz
       - name: Validate offline install in container
         run: |
-          docker pull ubuntu:22.04
-          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh"
+          docker pull debian:bullseye
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" debian:bullseye bash -lc "/dist-vendor/install-deps.sh"
