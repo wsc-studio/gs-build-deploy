@@ -19,10 +19,10 @@ jobs:
           mkdir -p dist-vendor/vendor/debs-pre dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts dist-vendor/vendor/luarocks dist-vendor/vendor/mongo dist-vendor/vendor/apt-offline
           sudo apt-get update
           sudo apt-get install -y apt-offline wget unzip lua5.4 lua5.4-dev cmake pkg-config make gcc libssl-dev libpq-dev
-          sudo apt-get install -y --download-only apt-offline python3-apt python3
+          sudo apt-get install -y --download-only apt-offline python3-apt python3 python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring cabextract
           cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs-pre/ || true
           printf "%s\n%s\n%s\n" "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" > dist-vendor/vendor/apt-offline/sources.list
-          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer"
           apt-offline set dist-vendor/vendor/apt-offline/offline.sig --sources-list dist-vendor/vendor/apt-offline/sources.list --install-packages "$PKGS" --verbose
           apt-offline get dist-vendor/vendor/apt-offline/offline.sig --bundle dist-vendor/vendor/apt-offline/apt-offline.zip
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
