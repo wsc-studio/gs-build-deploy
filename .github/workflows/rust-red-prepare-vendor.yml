@@ -46,6 +46,8 @@ jobs:
               lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
               ttf-mscorefonts-installer
             cp -a /var/cache/apt/archives/*.deb /out/
+            apt-get install -y dpkg-dev
+            (cd /out && dpkg-scanpackages . > Packages && gzip -k Packages)
           '
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz \
             https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
@@ -98,7 +100,18 @@ jobs:
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          $SUDO apt-get -y install "$DEBS"/*.deb
+          echo "deb [trusted=yes] file:$DEBS ./" | $SUDO tee /etc/apt/sources.list.d/offline.list
+          $SUDO apt-get update
+          $SUDO apt-get install -y --no-install-recommends \
+            ffmpeg \
+            libpq5 ca-certificates \
+            libavcodec58 libavformat58 libavutil56 libavdevice58 \
+            less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
+            libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
+            libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
+            libreadline8 readline-common libncursesw6 libtinfo6 \
+            lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
+            ttf-mscorefonts-installer
           lua5.4 -v || true
           unzip -v || true
           $SUDO ldconfig
