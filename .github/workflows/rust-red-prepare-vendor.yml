@@ -79,11 +79,17 @@ jobs:
           for i in 1 2 3; do $SUDO dpkg -i "$DEBS_PRE"/*.deb || true; done
           $SUDO unzip -q "$APT_DIR/apt-offline.zip" -d "$APT_DIR/unpacked" || true
           if [ -d "$APT_DIR/unpacked/var/cache/apt/archives" ]; then
+            $SUDO mkdir -p /var/cache/apt/archives || true
+            $SUDO cp -n "$APT_DIR/unpacked/var/cache/apt/archives"/*.deb /var/cache/apt/archives/ 2>/dev/null || true
             $SUDO dpkg -i "$APT_DIR/unpacked/var/cache/apt/archives"/*.deb || true
             for i in 1 2 3; do $SUDO dpkg -i "$APT_DIR/unpacked/var/cache/apt/archives"/*.deb || true; done
             $SUDO apt-get -f install -y || true
           fi
-          $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
+          if command -v python3 >/dev/null 2>&1; then
+            $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
+          else
+            echo "python3 not available yet; skipping apt-offline install pre-stage" >&2
+          fi
           PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
           $SUDO apt-get -y install $PKGS
           $SUDO ldconfig
