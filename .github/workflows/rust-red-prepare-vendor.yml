@@ -100,7 +100,14 @@ jobs:
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          echo "deb [trusted=yes] file:$DEBS ./" | $SUDO tee /etc/apt/sources.list.d/offline.list
+          SRC_BAK="/etc/apt/sources.list.bak"
+          SRCD_DIR="/etc/apt/sources.list.d"
+          SRCD_BAK="/etc/apt/sources.list.d.bak"
+          if [ -f /etc/apt/sources.list ]; then $SUDO cp -a /etc/apt/sources.list "$SRC_BAK"; fi
+          if [ -d "$SRCD_DIR" ]; then $SUDO mkdir -p "$SRCD_BAK"; $SUDO cp -a "$SRCD_DIR"/*.list "$SRCD_BAK"/ 2>/dev/null || true; fi
+          $SUDO rm -f /etc/apt/sources.list
+          $SUDO rm -f "$SRCD_DIR"/*.list 2>/dev/null || true
+          echo "deb [trusted=yes] file:$DEBS ./" | $SUDO tee /etc/apt/sources.list
           $SUDO apt-get update
           $SUDO apt-get install -y --no-install-recommends \
             ffmpeg \
@@ -115,6 +122,9 @@ jobs:
           lua5.4 -v || true
           unzip -v || true
           $SUDO ldconfig
+          if [ -f "$SRC_BAK" ]; then $SUDO mv -f "$SRC_BAK" /etc/apt/sources.list; else $SUDO rm -f /etc/apt/sources.list; fi
+          $SUDO rm -f "$SRCD_DIR"/*.list 2>/dev/null || true
+          if [ -d "$SRCD_BAK" ]; then $SUDO mkdir -p "$SRCD_DIR"; $SUDO cp -a "$SRCD_BAK"/*.list "$SRCD_DIR"/ 2>/dev/null || true; fi
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
           $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
