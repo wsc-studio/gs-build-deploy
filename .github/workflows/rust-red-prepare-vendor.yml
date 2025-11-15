@@ -23,8 +23,10 @@ jobs:
           cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs-pre/ || true
           printf "%s\n%s\n%s\n" "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" > dist-vendor/vendor/apt-offline/sources.list
           PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer"
-          PKGS_COMMA=$(echo "$PKGS" | tr ' ' ',')
-          sudo apt-offline set dist-vendor/vendor/apt-offline/offline.sig --update --install-packages "$PKGS_COMMA" --verbose
+          read -r -a PKGS_ARR <<< "$PKGS"
+          INSTALL_FLAGS=()
+          for p in "${PKGS_ARR[@]}"; do INSTALL_FLAGS+=(--install-packages "$p"); done
+          sudo apt-offline set dist-vendor/vendor/apt-offline/offline.sig --update "${INSTALL_FLAGS[@]}" --verbose
           sudo apt-offline get dist-vendor/vendor/apt-offline/offline.sig --bundle dist-vendor/vendor/apt-offline/apt-offline.zip
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
           COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
