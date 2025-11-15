@@ -23,7 +23,7 @@ jobs:
           sudo add-apt-repository -y universe
           sudo add-apt-repository -y multiverse
           sudo apt-get update
-          sudo apt-get install -y --download-only \
+          sudo apt-get install -y --download-only --no-install-recommends \
             ffmpeg \
             libpq5 ca-certificates \
             libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
@@ -34,6 +34,10 @@ jobs:
             lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
             ttf-mscorefonts-installer
           cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs/ || true
+          sudo apt-get install -y dpkg-dev
+          pushd dist-vendor/vendor/debs
+          dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+          popd
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz \
             https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
           COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
@@ -85,8 +89,12 @@ jobs:
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          $SUDO dpkg -i "$DEBS"/*.deb || true
-          for i in 1 2 3; do $SUDO dpkg -i "$DEBS"/*.deb || true; done
+          DEBS_ABS=$(cd "$DEBS" && pwd)
+          echo "deb [trusted=yes] file:$DEBS_ABS ./" | $SUDO tee /etc/apt/sources.list.d/offline-local.list
+          echo 'Acquire::Languages "none";' | $SUDO tee /etc/apt/apt.conf.d/99no-languages
+          $SUDO apt-get update
+          $SUDO apt-get install -y --no-install-recommends ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer || true
+          $SUDO apt-get -f install -y || true
           $SUDO ldconfig
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
@@ -135,4 +143,4 @@ jobs:
       - name: 容器内离线验证
         run: |
           docker pull ubuntu:22.04
-          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh && source /dist-vendor/env.sh && lua -v && soffice --version || true"
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh && source /dist-vendor/env.sh && lua -v && ffmpeg -version && soffice --version || true"
