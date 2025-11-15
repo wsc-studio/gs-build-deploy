@@ -73,36 +73,39 @@ jobs:
           cat <<'SH' > "$GITHUB_WORKSPACE/dist-vendor/install-deps.sh"
           #!/usr/bin/env bash
           set -euo pipefail
+          if [ "$(id -u)" -ne 0 ]; then
+            echo "ERROR: This script must be run as root"
+            exit 1
+          fi
           BASE=$(cd "$(dirname "$0")" && pwd)
           DEBS="$BASE/vendor/debs"
           LIBO_DIR="$BASE/vendor/libreoffice"
           MSF="$BASE/vendor/msfonts"
           LR_DIR="$BASE/vendor/luarocks"
           MONGO_DIR="$BASE/vendor/mongo"
-          if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
-          $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
-          $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections || true
+          mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
+          cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
           APO_DIR="$BASE/apt-offline"
-          $SUDO dpkg -i "$APO_DIR"/apt-offline_*.deb || true
-          $SUDO apt-offline install "$APO_DIR/downloads"
-          echo 'APT::Install-Recommends "false"; APT::Install-Suggests "false";' | $SUDO tee /etc/apt/apt.conf.d/99no-recommends
-          echo 'Acquire::Languages "none";' | $SUDO tee /etc/apt/apt.conf.d/99no-languages
-          $SUDO apt-get install -y --no-install-recommends ffmpeg libpq5 ca-certificates less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer || true
-          $SUDO ldconfig
+          dpkg -i "$APO_DIR"/apt-offline_*.deb || true
+          apt-offline install "$APO_DIR/downloads"
+          echo 'APT::Install-Recommends "false"; APT::Install-Suggests "false";' | tee /etc/apt/apt.conf.d/99no-recommends
+          echo 'Acquire::Languages "none";' | tee /etc/apt/apt.conf.d/99no-languages
+          apt-get install -y --no-install-recommends ffmpeg libpq5 ca-certificates less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer || true
+          ldconfig
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
-          $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
-          $SUDO ldconfig
+          dpkg -i LibreOffice_*/DEBS/*.deb
+          ldconfig
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
           ./configure --with-lua=/usr --with-lua-include=/usr/include/lua5.4
           make
-          $SUDO make install
+          make install
           luarocks --lua-version=5.4 config local_by_default true
           ROCKDIR="$LR_DIR"
-          $SUDO ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
+          ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
           PGSQL_INCDIR=/usr/include/postgresql
           PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu
           LUA_INCDIR=/usr/include/lua5.4
@@ -117,8 +120,8 @@ jobs:
           PREFIX="$SOURCE/_install"
           cmake -S "$SOURCE" -B "$BUILD" -D ENABLE_EXTRA_ALIGNMENT=OFF -D ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -D CMAKE_BUILD_TYPE=RelWithDebInfo -D BUILD_VERSION="$VERSION" -D ENABLE_MONGOC=ON
           cmake --build "$BUILD" --config RelWithDebInfo --parallel
-          $SUDO cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
-          $SUDO ldconfig
+          cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
+          ldconfig
           LIB_PREFIX="$PREFIX"
           luarocks install lua-mongo LIBBSON_DIR="$LIB_PREFIX" LIBBSON_INCDIR="$LIB_PREFIX/include" LIBBSON_LIBDIR="$LIB_PREFIX/lib" LIBMONGOC_DIR="$LIB_PREFIX" LIBMONGOC_INCDIR="$LIB_PREFIX/include" LIBMONGOC_LIBDIR="$LIB_PREFIX/lib" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1
           SH
