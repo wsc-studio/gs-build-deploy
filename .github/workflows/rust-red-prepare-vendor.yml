@@ -25,7 +25,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y apt-offline
           mkdir -p dist-vendor/apt-offline
-          echo 'APT::Install-Recommends "false"; APT::Install-Suggests "false";' | sudo tee /etc/apt/apt.conf.d/99no-recommends
           PKGS_COMMA="ffmpeg,unzip,libreadline8,readline-common,lua5.4,lua5.4-dev,libpq5,libpq-dev,ca-certificates,libssl-dev,build-essential,cmake,clang,pkg-config,fonts-noto,libgl1-mesa-glx,libnss3,libxinerama1,libglu1-mesa,libdbus-glib-1-2,libcups2,libcairo2,libsm6,libfontconfig1,libxrender1,libxext6,libfreetype6,default-jre,xvfb,libxslt1.1,gpg,less,vim,strace,cabextract,ttf-mscorefonts-installer"
           apt-offline set dist-vendor/apt-offline/signature.sig --update --install-packages "$PKGS_COMMA"
           apt-offline get dist-vendor/apt-offline/signature.sig --download-dir dist-vendor/apt-offline/downloads
@@ -73,10 +72,6 @@ jobs:
           cat <<'SH' > "$GITHUB_WORKSPACE/dist-vendor/install-deps.sh"
           #!/usr/bin/env bash
           set -euo pipefail
-          if [ "$(id -u)" -ne 0 ]; then
-            echo "ERROR: This script must be run as root"
-            exit 1
-          fi
           BASE=$(cd "$(dirname "$0")" && pwd)
           DEBS="$BASE/vendor/debs"
           LIBO_DIR="$BASE/vendor/libreoffice"
@@ -89,8 +84,6 @@ jobs:
           APO_DIR="$BASE/apt-offline"
           dpkg -i "$APO_DIR"/apt-offline_*.deb || true
           apt-offline install "$APO_DIR/downloads"
-          echo 'APT::Install-Recommends "false"; APT::Install-Suggests "false";' | tee /etc/apt/apt.conf.d/99no-recommends
-          echo 'Acquire::Languages "none";' | tee /etc/apt/apt.conf.d/99no-languages
           apt-get install -y --no-install-recommends ffmpeg libpq5 ca-certificates less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer || true
           ldconfig
           cd "$LIBO_DIR"
