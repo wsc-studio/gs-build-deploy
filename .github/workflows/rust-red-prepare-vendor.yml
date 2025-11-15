@@ -1,4 +1,4 @@
-name: RustRed Ubuntu 22.04 Offline Vendor
+name: RustRed Baremetal Offline Deps
 on:
   workflow_dispatch:
     inputs:
@@ -6,46 +6,36 @@ on:
         description: 版本信息
         required: true
 jobs:
-  vendor:
+  offline-vendor:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: 准备离线依赖包
+      - name: Prepare baremetal offline deps
         env:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          mkdir -p dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts
-          mkdir -p dist-vendor/vendor/luarocks dist-vendor/vendor/mongo
+          mkdir -p dist-vendor/vendor/debs-pre dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts dist-vendor/vendor/luarocks dist-vendor/vendor/mongo dist-vendor/vendor/apt-offline
           sudo apt-get update
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository -y universe
-          sudo add-apt-repository -y multiverse
-          sudo apt-get update
-          sudo apt-get install -y apt-offline
-          mkdir -p dist-vendor/apt-offline
-          PKGS_COMMA="ffmpeg,unzip,libreadline8,readline-common,lua5.4,lua5.4-dev,libpq5,libpq-dev,ca-certificates,libssl-dev,build-essential,cmake,clang,pkg-config,fonts-noto,libgl1-mesa-glx,libnss3,libxinerama1,libglu1-mesa,libdbus-glib-1-2,libcups2,libcairo2,libsm6,libfontconfig1,libxrender1,libxext6,libfreetype6,default-jre,xvfb,libxslt1.1,gpg,less,vim,strace,cabextract,ttf-mscorefonts-installer"
-          apt-offline set dist-vendor/apt-offline/signature.sig --update --install-packages "$PKGS_COMMA"
-          apt-offline get dist-vendor/apt-offline/signature.sig --download-dir dist-vendor/apt-offline/downloads
-          pushd dist-vendor/apt-offline
-          apt-get download apt-offline
-          popd
-          wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz \
-            https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
+          sudo apt-get install -y apt-offline wget unzip lua5.4 lua5.4-dev cmake pkg-config make gcc libssl-dev libpq-dev
+          sudo apt-get install -y --download-only apt-offline python3-apt python3
+          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs-pre/ || true
+          printf "%s\n%s\n%s\n" "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" > dist-vendor/vendor/apt-offline/sources.list
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
+          apt-offline set dist-vendor/vendor/apt-offline/offline.sig --sources-list dist-vendor/vendor/apt-offline/sources.list --install-packages "$PKGS" --verbose
+          apt-offline get dist-vendor/vendor/apt-offline/offline.sig --bundle dist-vendor/vendor/apt-offline/apt-offline.zip
+          wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
           COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
-          for f in "${COREFONTS[@]}"; do
-            wget -O "dist-vendor/vendor/msfonts/$f" "https://downloads.sourceforge.net/corefonts/$f" || true
-          done
+          for f in "${COREFONTS[@]}"; do wget -O "dist-vendor/vendor/msfonts/$f" "https://downloads.sourceforge.net/corefonts/$f" || true; done
           wget -O dist-vendor/vendor/luarocks/luarocks-3.11.1.tar.gz https://luarocks.org/releases/luarocks-3.11.1.tar.gz
           wget -O dist-vendor/vendor/mongo/mongo-c-driver-1.27.6.tar.gz https://github.com/mongodb/mongo-c-driver/releases/download/1.27.6/mongo-c-driver-1.27.6.tar.gz
-          sudo apt-get install -y lua5.4 lua5.4-dev make gcc cmake pkg-config libssl-dev libpq-dev
           tar -xzf dist-vendor/vendor/luarocks/luarocks-3.11.1.tar.gz -C /tmp
           cd /tmp/luarocks-3.11.1
           ./configure --with-lua=/usr --with-lua-include=/usr/include/lua5.4
           make
           sudo make install
-          cd -
+          cd "$GITHUB_WORKSPACE"
           REPO_DIR="$GITHUB_WORKSPACE/dist-vendor/vendor/luarocks"
           ROCKS_DIR="$REPO_DIR/rocks"
           mkdir -p "$ROCKS_DIR"
@@ -70,35 +60,37 @@ jobs:
           mv lua-mongo-*.rock "$ROCKS_DIR"
           luarocks-admin make-manifest "$REPO_DIR"
           cat <<'SH' > "$GITHUB_WORKSPACE/dist-vendor/install-deps.sh"
-          #!/usr/bin/env bash
           set -euo pipefail
           BASE=$(cd "$(dirname "$0")" && pwd)
-          DEBS="$BASE/vendor/debs"
+          DEBS_PRE="$BASE/vendor/debs-pre"
           LIBO_DIR="$BASE/vendor/libreoffice"
           MSF="$BASE/vendor/msfonts"
           LR_DIR="$BASE/vendor/luarocks"
           MONGO_DIR="$BASE/vendor/mongo"
-          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections || true
-          mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
-          cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          APO_DIR="$BASE/apt-offline"
-          dpkg -i "$APO_DIR"/apt-offline_*.deb || true
-          apt-offline install "$APO_DIR/downloads"
-          apt-get install -y --no-install-recommends ffmpeg libpq5 ca-certificates less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer || true
-          ldconfig
+          APT_DIR="$BASE/vendor/apt-offline"
+          if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
+          $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
+          $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
+          $SUDO dpkg -i "$DEBS_PRE"/*.deb || true
+          for i in 1 2 3; do $SUDO dpkg -i "$DEBS_PRE"/*.deb || true; done
+          $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
+          $SUDO apt-get -y install $PKGS
+          $SUDO ldconfig
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
-          dpkg -i LibreOffice_*/DEBS/*.deb
-          ldconfig
+          $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
+          $SUDO ldconfig
           cd "$LR_DIR"
           tar -xzf luarocks-*.tar.gz
           cd "$(ls -d luarocks-*/ | head -n1)"
           ./configure --with-lua=/usr --with-lua-include=/usr/include/lua5.4
           make
-          make install
+          $SUDO make install
           luarocks --lua-version=5.4 config local_by_default true
           ROCKDIR="$LR_DIR"
-          ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
+          $SUDO ln -sf /usr/include/postgresql/libpq-fe.h /usr/include/libpq-fe.h || true
           PGSQL_INCDIR=/usr/include/postgresql
           PGSQL_LIBDIR=/usr/lib/x86_64-linux-gnu
           LUA_INCDIR=/usr/include/lua5.4
@@ -113,8 +105,8 @@ jobs:
           PREFIX="$SOURCE/_install"
           cmake -S "$SOURCE" -B "$BUILD" -D ENABLE_EXTRA_ALIGNMENT=OFF -D ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -D CMAKE_BUILD_TYPE=RelWithDebInfo -D BUILD_VERSION="$VERSION" -D ENABLE_MONGOC=ON
           cmake --build "$BUILD" --config RelWithDebInfo --parallel
-          cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
-          ldconfig
+          $SUDO cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo
+          $SUDO ldconfig
           LIB_PREFIX="$PREFIX"
           luarocks install lua-mongo LIBBSON_DIR="$LIB_PREFIX" LIBBSON_INCDIR="$LIB_PREFIX/include" LIBBSON_LIBDIR="$LIB_PREFIX/lib" LIBMONGOC_DIR="$LIB_PREFIX" LIBMONGOC_INCDIR="$LIB_PREFIX/include" LIBMONGOC_LIBDIR="$LIB_PREFIX/lib" LUA_INCDIR="$LUA_INCDIR" --lua-version=5.4 --server="file://$ROCKDIR" --only-server --local || exit 1
           SH
@@ -124,13 +116,13 @@ jobs:
           export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
           ENV
           printf "%s" "$VERSION" > "$GITHUB_WORKSPACE/dist-vendor/VERSION"
-          tar -czf "$GITHUB_WORKSPACE/rust-red-vendor-ubuntu22.04.tar.gz" -C "$GITHUB_WORKSPACE/dist-vendor" .
-      - name: 上传离线依赖包
+          tar -czf "$GITHUB_WORKSPACE/rust-red-baremetal-vendor.tar.gz" -C "$GITHUB_WORKSPACE/dist-vendor" .
+      - name: Upload vendor artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust-red-vendor-ubuntu22.04
-          path: rust-red-vendor-ubuntu22.04.tar.gz
-      - name: 容器内离线验证
+          name: rust-red-baremetal-vendor
+          path: rust-red-baremetal-vendor.tar.gz
+      - name: Validate offline install in container
         run: |
           docker pull ubuntu:22.04
-          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh && source /dist-vendor/env.sh && lua -v && ffmpeg -version && soffice --version || true"
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh"
