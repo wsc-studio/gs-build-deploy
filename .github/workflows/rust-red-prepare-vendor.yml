@@ -22,7 +22,7 @@ jobs:
           sudo apt-get install -y --download-only apt-offline python3-apt python3 python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring cabextract
           cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs-pre/ || true
           printf "%s\n%s\n%s\n" "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" > dist-vendor/vendor/apt-offline/sources.list
-          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer apt-offline python3 python3-apt python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring"
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract libmspack0 ttf-mscorefonts-installer apt-offline python3 python3-minimal libpython3-stdlib python3-apt python3-magic libcurl3-gnutls python3-httplib2 python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring"
           read -r -a PKGS_ARR <<< "$PKGS"
           INSTALL_FLAGS=()
           for p in "${PKGS_ARR[@]}"; do INSTALL_FLAGS+=(--install-packages "$p"); done
@@ -75,21 +75,16 @@ jobs:
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          $SUDO dpkg -i "$DEBS_PRE"/debian-archive-keyring_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/python3*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/python3-apt_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/python3-pycurl_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/python3-pysimplesoap_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/python3-debianbts_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/apt-offline_*.deb || true
-          $SUDO dpkg -i "$DEBS_PRE"/cabextract_*.deb || true
-          $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
-          $SUDO mkdir -p /var/cache/apt/archives || true
           $SUDO unzip -q "$APT_DIR/apt-offline.zip" -d "$APT_DIR/unpacked" || true
-          if [ -d "$APT_DIR/unpacked/var/cache/apt/archives" ]; then
-            $SUDO cp -n "$APT_DIR/unpacked/var/cache/apt/archives"/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          CACHE="$APT_DIR/unpacked/var/cache/apt/archives"
+          if [ -d "$CACHE" ]; then
+            $SUDO mkdir -p /var/cache/apt/archives || true
+            $SUDO cp -n "$CACHE"/*.deb /var/cache/apt/archives/ 2>/dev/null || true
           fi
+          BOOT=(debian-archive-keyring python3-minimal libpython3-stdlib python3 python3-apt python3-magic less libcurl3-gnutls python3-httplib2 libmspack0 cabextract apt-offline)
+          for p in "${BOOT[@]}"; do $SUDO dpkg -i "$CACHE"/${p}_*.deb 2>/dev/null || $SUDO dpkg -i "$DEBS_PRE"/${p}_*.deb 2>/dev/null || true; done
           $SUDO apt-get -f install -y || true
+          $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
           PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
           $SUDO apt-get -y install $PKGS
           $SUDO ldconfig
