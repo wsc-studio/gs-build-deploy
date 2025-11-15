@@ -1,4 +1,4 @@
-name: RustRed Vendor Offline Deps
+name: RustRed Ubuntu 22.04 Offline Vendor
 on:
   workflow_dispatch:
     inputs:
@@ -10,45 +10,30 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare vendor offline deps
+      - name: 准备离线依赖包
         env:
           VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           mkdir -p dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts
           mkdir -p dist-vendor/vendor/luarocks dist-vendor/vendor/mongo
-          source /etc/os-release || true
-          if [ "${ID:-}" = "debian" ] || echo "${ID_LIKE:-}" | grep -qi debian; then
-            sudo sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list || true
-          fi
-          if [ "${ID:-}" = "ubuntu" ] || echo "${ID_LIKE:-}" | grep -qi ubuntu; then
-            sudo apt-get update
-            sudo apt-get install -y software-properties-common
-            sudo add-apt-repository -y universe || true
-            sudo add-apt-repository -y multiverse || true
-          fi
           sudo apt-get update
-          docker run --rm -v "$PWD/dist-vendor/vendor/debs:/out" debian:bullseye bash -lc '
-            set -euo pipefail
-            echo "deb http://deb.debian.org/debian bullseye main contrib non-free" > /etc/apt/sources.list
-            echo "deb http://deb.debian.org/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list
-            echo "deb http://security.debian.org/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list
-            echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list
-            apt-get update
-            PKGS="ffmpeg libpq5 ca-certificates openssl \
-              libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
-              less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
-              libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
-              libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
-              libreadline8 readline-common libncursesw6 libtinfo6 \
-              lua5.4 liblua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
-              ttf-mscorefonts-installer cabextract libmspack0"
-            NAMES=$(apt-get -o APT::Install-Recommends=false --just-print install $PKGS | awk '/^Inst /{print $2}' | sort -u)
-            cd /out
-            apt-get download $NAMES
-            apt-get install -y dpkg-dev
-            (cd /out && dpkg-scanpackages . > Packages && gzip -k Packages)
-          '
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y universe
+          sudo add-apt-repository -y multiverse
+          sudo apt-get update
+          sudo apt-get install -y --download-only \
+            ffmpeg \
+            libpq5 ca-certificates \
+            libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
+            less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
+            libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
+            libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
+            libreadline8 readline-common libncursesw6 libtinfo6 \
+            lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
+            ttf-mscorefonts-installer
+          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs/ || true
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz \
             https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
           COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
@@ -100,31 +85,9 @@ jobs:
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          SRC_BAK="/etc/apt/sources.list.bak"
-          SRCD_DIR="/etc/apt/sources.list.d"
-          SRCD_BAK="/etc/apt/sources.list.d.bak"
-          if [ -f /etc/apt/sources.list ]; then $SUDO cp -a /etc/apt/sources.list "$SRC_BAK"; fi
-          if [ -d "$SRCD_DIR" ]; then $SUDO mkdir -p "$SRCD_BAK"; $SUDO cp -a "$SRCD_DIR"/*.list "$SRCD_BAK"/ 2>/dev/null || true; fi
-          $SUDO rm -f /etc/apt/sources.list
-          $SUDO rm -f "$SRCD_DIR"/*.list 2>/dev/null || true
-          echo "deb [trusted=yes] file:$DEBS ./" | $SUDO tee /etc/apt/sources.list
-          $SUDO apt-get update
-          $SUDO apt-get install -y --no-install-recommends \
-            ffmpeg \
-            libpq5 ca-certificates openssl \
-            libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
-            less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
-            libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
-            libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
-            libreadline8 readline-common libncursesw6 libtinfo6 \
-            lua5.4 liblua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
-            ttf-mscorefonts-installer cabextract libmspack0
-          lua5.4 -v || true
-          unzip -v || true
+          $SUDO dpkg -i "$DEBS"/*.deb || true
+          for i in 1 2 3; do $SUDO dpkg -i "$DEBS"/*.deb || true; done
           $SUDO ldconfig
-          if [ -f "$SRC_BAK" ]; then $SUDO mv -f "$SRC_BAK" /etc/apt/sources.list; else $SUDO rm -f /etc/apt/sources.list; fi
-          $SUDO rm -f "$SRCD_DIR"/*.list 2>/dev/null || true
-          if [ -d "$SRCD_BAK" ]; then $SUDO mkdir -p "$SRCD_DIR"; $SUDO cp -a "$SRCD_BAK"/*.list "$SRCD_DIR"/ 2>/dev/null || true; fi
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
           $SUDO dpkg -i LibreOffice_*/DEBS/*.deb
@@ -163,13 +126,13 @@ jobs:
           export PYTHONHOME="/opt/libreoffice25.2/program/python-core-3.10.16"
           ENV
           printf "%s" "$VERSION" > "$GITHUB_WORKSPACE/dist-vendor/VERSION"
-          tar -czf "$GITHUB_WORKSPACE/rust-red-vendor.tar.gz" -C "$GITHUB_WORKSPACE/dist-vendor" .
-      - name: Upload vendor artifact
+          tar -czf "$GITHUB_WORKSPACE/rust-red-vendor-ubuntu22.04.tar.gz" -C "$GITHUB_WORKSPACE/dist-vendor" .
+      - name: 上传离线依赖包
         uses: actions/upload-artifact@v4
         with:
-          name: rust-red-vendor
-          path: rust-red-vendor.tar.gz
-      - name: Validate offline install in container
+          name: rust-red-vendor-ubuntu22.04
+          path: rust-red-vendor-ubuntu22.04.tar.gz
+      - name: 容器内离线验证
         run: |
-          docker pull debian:bullseye
-          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" debian:bullseye bash -lc "/dist-vendor/install-deps.sh"
+          docker pull ubuntu:22.04
+          docker run --rm --network none -v "$PWD/dist-vendor:/dist-vendor" ubuntu:22.04 bash -lc "/dist-vendor/install-deps.sh && source /dist-vendor/env.sh && lua -v && soffice --version || true"
