@@ -43,7 +43,7 @@ jobs:
               libreadline8 readline-common libncursesw6 libtinfo6 \
               lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
               ttf-mscorefonts-installer cabextract libmspack0"
-            DEPS=$(apt-rdepends $PKGS | sed -n 's/^\([a-z0-9][a-z0-9+.-]*\)$/\1/p' | sort -u)
+            DEPS=$(apt-rdepends $PKGS | awk '/^[a-z0-9][a-z0-9+.-]*$/ {print}' | sort -u)
             cd /out
             apt-get download $DEPS
             apt-get install -y dpkg-dev
