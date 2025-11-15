@@ -31,21 +31,21 @@ jobs:
           docker run --rm -v "$PWD/dist-vendor/vendor/debs:/out" ubuntu:22.04 bash -lc '
             set -euo pipefail
             apt-get update
-            apt-get install -y software-properties-common
+            apt-get install -y software-properties-common apt-rdepends
             add-apt-repository -y universe || true
             add-apt-repository -y multiverse || true
             apt-get update
-            apt-get install -y --download-only --reinstall \
-              ffmpeg \
-              libpq5 ca-certificates \
+            PKGS="ffmpeg libpq5 ca-certificates \
               libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
               less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa \
               libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 \
               libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip \
               libreadline8 readline-common libncursesw6 libtinfo6 \
               lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev \
-              ttf-mscorefonts-installer
-            cp -a /var/cache/apt/archives/*.deb /out/
+              ttf-mscorefonts-installer cabextract libmspack0"
+            DEPS=$(apt-rdepends $PKGS | sed -n 's/^\([a-z0-9][a-z0-9+.-]*\)$/\1/p' | sort -u)
+            cd /out
+            apt-get download $DEPS
             apt-get install -y dpkg-dev
             (cd /out && dpkg-scanpackages . > Packages && gzip -k Packages)
           '
