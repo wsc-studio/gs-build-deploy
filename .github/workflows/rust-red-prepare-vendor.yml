@@ -10,24 +10,19 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare baremetal offline deps
+      - name: Prepare local APT repo and offline deps
         env:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          mkdir -p dist-vendor/vendor/debs-pre dist-vendor/vendor/debs dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts dist-vendor/vendor/luarocks dist-vendor/vendor/mongo dist-vendor/vendor/apt-offline
+          mkdir -p dist-vendor/vendor/local-apt dist-vendor/vendor/libreoffice dist-vendor/vendor/msfonts dist-vendor/vendor/luarocks dist-vendor/vendor/mongo
           sudo apt-get update
-          sudo apt-get install -y apt-offline wget unzip lua5.4 lua5.4-dev cmake pkg-config make gcc libssl-dev libpq-dev
-          sudo apt-get install -y --download-only apt-offline python3-apt python3 python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring cabextract
-          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/debs-pre/ || true
-          printf "%s\n%s\n%s\n" "deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse" "deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse" > dist-vendor/vendor/apt-offline/sources.list
-          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract libmspack0 ttf-mscorefonts-installer apt-offline python3 python3-minimal libpython3-stdlib python3-apt python3-magic libcurl3-gnutls python3-httplib2 python3-pycurl python3-pysimplesoap python3-debianbts debian-archive-keyring"
-          read -r -a PKGS_ARR <<< "$PKGS"
-          INSTALL_FLAGS=()
-          for p in "${PKGS_ARR[@]}"; do INSTALL_FLAGS+=(--install-packages "$p"); done
-          sudo apt-offline set dist-vendor/vendor/apt-offline/offline.sig --update "${INSTALL_FLAGS[@]}" --verbose
-          sudo apt-offline get dist-vendor/vendor/apt-offline/offline.sig --bundle dist-vendor/vendor/apt-offline/apt-offline.zip
+          sudo apt-get install -y wget lua5.4 lua5.4-dev cmake pkg-config make gcc libssl-dev libpq-dev dpkg-dev
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer"
+          sudo apt-get install -y --download-only $PKGS
+          cp /var/cache/apt/archives/*.deb dist-vendor/vendor/local-apt/ || true
+          (cd dist-vendor/vendor/local-apt && dpkg-scanpackages . | gzip -9 > Packages.gz)
           wget -O dist-vendor/vendor/libreoffice/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz https://download.documentfoundation.org/libreoffice/stable/25.2.7/deb/x86_64/LibreOffice_25.2.7_Linux_x86-64_deb.tar.gz
           COREFONTS=(andale32.exe arial32.exe arialb32.exe comic32.exe courie32.exe georgi32.exe impact32.exe times32.exe trebuc32.exe verdan32.exe webdin32.exe)
           for f in "${COREFONTS[@]}"; do wget -O "dist-vendor/vendor/msfonts/$f" "https://downloads.sourceforge.net/corefonts/$f" || true; done
@@ -70,23 +65,15 @@ jobs:
           MSF="$BASE/vendor/msfonts"
           LR_DIR="$BASE/vendor/luarocks"
           MONGO_DIR="$BASE/vendor/mongo"
-          APT_DIR="$BASE/vendor/apt-offline"
+          LAPT="$BASE/vendor/local-apt"
           if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | $SUDO debconf-set-selections || true
           $SUDO mkdir -p /var/lib/ttf-mscorefonts-installer/files || true
           $SUDO cp "$MSF"/*.exe /var/lib/ttf-mscorefonts-installer/files/ 2>/dev/null || true
-          $SUDO unzip -q "$APT_DIR/apt-offline.zip" -d "$APT_DIR/unpacked" || true
-          CACHE="$APT_DIR/unpacked/var/cache/apt/archives"
-          if [ -d "$CACHE" ]; then
-            $SUDO mkdir -p /var/cache/apt/archives || true
-            $SUDO cp -n "$CACHE"/*.deb /var/cache/apt/archives/ 2>/dev/null || true
-          fi
-          BOOT=(debian-archive-keyring python3-minimal libpython3-stdlib python3 python3-apt python3-magic less libcurl3-gnutls python3-httplib2 libmspack0 cabextract apt-offline)
-          for p in "${BOOT[@]}"; do $SUDO dpkg -i "$CACHE"/${p}_*.deb 2>/dev/null || $SUDO dpkg -i "$DEBS_PRE"/${p}_*.deb 2>/dev/null || true; done
-          $SUDO apt-get -f install -y || true
-          $SUDO apt-offline install "$APT_DIR/apt-offline.zip"
-          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev ttf-mscorefonts-installer"
-          $SUDO apt-get -y install $PKGS
+          echo "deb [trusted=yes] file://$LAPT ./" | $SUDO tee /etc/apt/sources.list.d/local-offline.list >/dev/null
+          $SUDO apt-get -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/local-offline.list -o Dir::Etc::sourceparts=/dev/null -o APT::Get::List-Cleanup=false update
+          PKGS="ffmpeg libpq5 ca-certificates libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev less vim strace fonts-noto libgl1-mesa-glx libnss3 libxinerama1 libglu1-mesa libdbus-glib-1-2 libcups2 libcairo2 libsm6 libfontconfig1 libxrender1 libxext6 libfreetype6 default-jre xvfb libxslt1.1 gpg wget unzip libreadline8 readline-common libncursesw6 libtinfo6 lua5.4 lua5.4-dev libpq-dev cmake clang pkg-config build-essential libssl-dev cabextract ttf-mscorefonts-installer"
+          $SUDO apt-get install -y $PKGS || $SUDO apt-get -f install -y
           $SUDO ldconfig
           cd "$LIBO_DIR"
           tar -xzf LibreOffice_*.tar.gz
