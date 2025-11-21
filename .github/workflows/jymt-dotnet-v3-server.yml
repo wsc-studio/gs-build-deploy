@@ -68,9 +68,9 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ github.event.inputs.server }} -p ${{ github.event.inputs.port }} << 'EOF'
             docker pull registry.cn-hangzhou.aliyuncs.com/gskj/jymt-v3-dotnet-server:${{ inputs.version }}
-            docker stop jymt-server-core || true
-            docker rm jymt-server-core || true            
-            docker run -itd --name jymt-server-core --privileged=true \
+            docker stop jymt-v3-dotnet-server || true
+            docker rm jymt-v3-dotnet-server || true            
+            docker run -itd --name jymt-v3-dotnet-server \
             -p 7021:80 \
             -v ${{ github.event.inputs.path }}/jymt_files:/app/jymt_files \
             -v ${{ github.event.inputs.path }}/log:/app/log \
