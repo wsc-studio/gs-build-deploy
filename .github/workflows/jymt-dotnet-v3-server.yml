@@ -83,5 +83,5 @@ jobs:
                 --log-opt max-size=500m \
                 --log-opt max-file=3 \
                 registry.cn-hangzhou.aliyuncs.com/gskj/jymt-v3-dotnet-server:${{ inputs.version }}
-            docker images -a | grep jymt-v3-dotnet-server:${{ inputs.version }} | awk '{print $3}' | xargs -r docker rmi || true
+            docker images -a | grep jymt-v3-dotnet-server | awk '{print $3}' | xargs -r docker rmi || true
           EOF
