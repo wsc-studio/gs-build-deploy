@@ -36,10 +36,10 @@ jobs:
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
       - name: Run commands on remote server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ github.event.inputs.server }} -p ${{ github.event.inputs.port }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no root@git.wsc.tech -p 22 << 'EOF'
             docker pull registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
             docker stop rust-iot || true
             docker rm rust-iot || true
