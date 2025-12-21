@@ -20,9 +20,9 @@ jobs:
             docker run -itd --name rust-kzpipe-v3 --privileged=true \
                 -p 7024:8080 \
                 -v /etc/localtime:/etc/localtime:ro \
-                -v /root/home/rust-kzpipe/config:/app/config \
-                -v /root/home/rust-kzpipe/data:/app/data \
-                -v /root/home/rust-kzpipe/flow:/app/flow \
+                -v /home/rust-kzpipe/config:/app/config \
+                -v /home/rust-kzpipe/data:/app/data \
+                -v /home/rust-kzpipe/flow:/app/flow \
                 -v /home/kz/nginx/webroot/kzpipe-upload-image:/app/upload-image \
                 -e TZ=Asia/Shanghai \
                 --log-opt max-size=500m \
