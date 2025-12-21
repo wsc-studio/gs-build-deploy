@@ -1,0 +1,33 @@
+name: Deploy KZPIPE Rust-Red Project [LITE] --- [FAST]
+run-name: ${{ github.actor }} is Running KZPIPE Rust-Red Project Docker Image --- [FAST].
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.KZPROD_SSH_PRIVATE_KEY || secrets.DEV_SSH_PRIVATE_KEY }}
+      - name: Run commands on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no kz@v3.kzpipe.cn -p 2212 << 'EOF'
+            docker pull registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
+            docker stop rust-kzpipe-v3 || true
+            docker rm rust-kzpipe-v3 || true
+            
+            docker run -itd --name rust-kzpipe-v3 --privileged=true \
+                -p 7024:8080 \
+                -v /etc/localtime:/etc/localtime:ro \
+                -v /root/home/rust-kzpipe/config:/app/config \
+                -v /root/home/rust-kzpipe/data:/app/data \
+                -v /root/home/rust-kzpipe/flow:/app/flow \
+                -v /home/kz/nginx/webroot/kzpipe-upload-image:/app/upload-image \
+                -e TZ=Asia/Shanghai \
+                --log-opt max-size=500m \
+                --log-opt max-file=3 \
+                registry.cn-hangzhou.aliyuncs.com/gskj/rust-red:latest
+                
+            docker images -a | grep rust-red | awk '{print $3}' | xargs -r docker rmi || true
+          EOF
