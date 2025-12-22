@@ -18,7 +18,7 @@ jobs:
             docker rm rust-iot || true
             
             docker run -itd --name rust-iot --privileged=true \
-                -p 7024:8080 \
+                -p 7024:8080 -p 6669:6669 \
                 -v /etc/localtime:/etc/localtime:ro \
                 -v /root/home/rust-iot/config:/app/config \
                 -v /root/home/rust-iot/data:/app/data \
