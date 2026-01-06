@@ -1,5 +1,5 @@
-name: Build and Deploy Rust-Red Builder Base
-run-name: ${{ github.actor }} is Build and Deploy Rust-Red Builder Base Docker Image.
+name: Build and Push Rust-Red Builder Base
+run-name: ${{ github.actor }} is Building Rust-Red Builder Base Docker Image.
 on:
   workflow_dispatch:
 jobs:
@@ -11,7 +11,7 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b dev --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+          git clone -b dev-shared-ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
           cd rust-red
       - name: Login to Aliyun Docker Hub
         uses: docker/login-action@v3
