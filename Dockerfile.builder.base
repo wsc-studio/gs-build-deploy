@@ -1,0 +1,41 @@
+FROM rust:1-bullseye
+
+# 安装 cargo-chef 以加速构建
+RUN cargo install cargo-chef
+RUN cargo install tokio-console
+
+# 安装Lua和必要依赖
+RUN apt-get update \
+   && apt-get install -y lua5.4 lua5.4-dev \
+   && apt-get install -y libpq-dev cmake clang libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev pkg-config libssl-dev curl libcurl4-openssl-dev libcurl4 git build-essential unzip
+
+# 安装luarocks和Lua模块
+COPY resources/luarocks-3.12.2.tar.gz .
+RUN tar zxpf luarocks-3.12.2.tar.gz \
+   && cd luarocks-3.12.2 && ./configure && make && make install \
+   && luarocks install luasql-postgres PGSQL_INCDIR=/usr/include/postgresql LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install lua-cjson LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install luaossl LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install jsonschema LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install luasocket LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install luasystem LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install uuid LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
+   && luarocks install luasec LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4
+
+# 安装MongoDB C驱动
+COPY resources/mongo-c-driver-1.27.6.tar.gz .
+RUN tar zxf mongo-c-driver-1.27.6.tar.gz \
+   && cd mongo-c-driver-1.27.6 \
+   && export SOURCE=$(pwd) && echo $SOURCE \
+   && export BUILD=$SOURCE/_build \
+   && export VERSION="1.27.6" \
+   && export PREFIX=$SOURCE/_install \
+   && cmake -S $SOURCE -B $BUILD \
+   -D ENABLE_EXTRA_ALIGNMENT=OFF \
+   -D ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF \
+   -D CMAKE_BUILD_TYPE=RelWithDebInfo \
+   -D BUILD_VERSION="$VERSION" \
+   -D ENABLE_MONGOC=ON \
+   && cmake --build $BUILD --config RelWithDebInfo --parallel \
+   && cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo \
+   && luarocks install lua-mongo LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX" LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4
