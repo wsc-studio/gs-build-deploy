@@ -1,4 +1,5 @@
-FROM rust:1-bullseye
+FROM ghcr.io/rust-lang/rust:1-bullseye
+#FROM rust:1-bullseye
 
 # 安装 cargo-chef 以加速构建
 RUN cargo install cargo-chef
