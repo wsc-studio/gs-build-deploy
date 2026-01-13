@@ -21,14 +21,14 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b dev-shared-ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+          git clone --recursive -b dev-shared-ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
           cd rust-red
       # 把rust-red插件项目拉取下来
       - name: Checkout private GitLab repository
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b master --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red-plugins.git rust-red-plugins
+          git clone --recursive -b master --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red-plugins.git rust-red-plugins
       # 注意：actions/checkout@v4 已经把本仓库（gs-build-deploy）拉取到了当前目录
       # 因此不需要再次 clone 本仓库。
 
