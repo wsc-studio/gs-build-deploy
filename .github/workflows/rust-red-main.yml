@@ -1,0 +1,49 @@
+name: Build and Push Rust-Red Project --- [main]
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile.separated
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # 把rust-red主项目拉取下来
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b dev_shared_ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+          cd rust-red
+      # 把rust-red插件项目拉取下来
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b master --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red-plugins.git rust-red-plugins
+      # 把本仓库拉取下来
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone -b main --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red-plugins.git rust-red-plugins
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.separated
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/wsc-studio/rust-red-main-base:latest
+            ghcr.io/wsc-studio/rust-red-main-base:${{ github.sha }}
+          labels: rust-red-main-base
+
+  
