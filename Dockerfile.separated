@@ -16,10 +16,10 @@ RUN cargo build --release
 # 阶段 2：构建插件 (Plugins Builder)
 # ==========================================
 FROM ghcr.io/wsc-studio/rust-red-builder-base:latest AS plugins-builder
-WORKDIR /app
+WORKDIR /app-plugins
 # 拷贝插件源代码
 COPY ./rust-red-plugins /app-plugins
-# 编译插件 (假设插件项目也是一个 workspace)
+# 编译插件
 RUN cargo build --release
 
 # ==========================================
@@ -28,9 +28,9 @@ RUN cargo build --release
 FROM ghcr.io/wsc-studio/rust-red-runtime-base:latest
 WORKDIR /app
 
-# 0. 【新增】从 builder 提取 tokio-console 二进制文件
+# 0. 【新增】从 host-builder 提取 tokio-console 二进制文件
 # 这样你就可以通过 `docker exec -it <container> tokio-console` 进行调试了
-COPY --from=builder /usr/local/cargo/bin/tokio-console /usr/local/bin/
+COPY --from=host-builder /usr/local/cargo/bin/tokio-console /usr/local/bin/
 
 # 从 host-builder 拷贝主程序
 # 复制编译好的二进制文件
