@@ -6,7 +6,10 @@ WORKDIR /app
 COPY ./rust-red /app
 
 # 临时修改Cargo.toml，移除stone-axe-engine依赖
-RUN sed -i '/stone-axe-engine/d' Cargo.toml
+RUN sed -i '/stone-axe-engine/d' Cargo.toml && \
+    rm -f rust-toolchain.toml && \
+    rm -rf .cargo
+
 
 # 编译主程序
 ENV RUSTFLAGS="--cfg tokio_unstable -C link-args=-rdynamic"
@@ -19,6 +22,11 @@ FROM ghcr.io/wsc-studio/rust-red-builder-base:latest AS plugins-builder
 WORKDIR /app-plugins
 # 拷贝插件源代码
 COPY ./rust-red-plugins /app-plugins
+
+# 临时修改Cargo.toml，移除stone-axe-engine依赖
+RUN rm -f rust-toolchain.toml && \
+    rm -rf .cargo
+
 # 编译插件
 RUN cargo build --release
 
