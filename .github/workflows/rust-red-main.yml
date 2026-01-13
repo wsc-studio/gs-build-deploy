@@ -21,7 +21,7 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
-          git clone -b dev_shared_ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+          git clone -b dev-shared-ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/base/rust-red-group/rust-red.git rust-red
           cd rust-red
       # 把rust-red插件项目拉取下来
       - name: Checkout private GitLab repository
