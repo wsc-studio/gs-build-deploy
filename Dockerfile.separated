@@ -24,6 +24,7 @@ WORKDIR /app-plugins
 COPY ./rust-red-plugins /app-plugins
 
 # 临时修改Cargo.toml，移除stone-axe-engine依赖
+ENV RUSTFLAGS="--cfg tokio_unstable -C link-args=-rdynamic"
 RUN rm -f rust-toolchain.toml && \
     rm -rf .cargo
 
