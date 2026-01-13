@@ -1,4 +1,7 @@
-name: Build and Push Rust-Red Project --- [main]
+name: Build and Push Rust-Red [main]
+permissions:
+  contents: read
+  packages: write
 on:
   workflow_dispatch:
   push:
