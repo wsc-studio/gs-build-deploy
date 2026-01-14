@@ -11,6 +11,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 定义四种变体
+        variant: [full, no-lo, no-ffmpeg, lite]
+        include:
+          - variant: full
+            lo: "true"
+            ffmpeg: "true"
+          - variant: no-lo
+            lo: "false"
+            ffmpeg: "true"
+          - variant: no-ffmpeg
+            lo: "true"
+            ffmpeg: "false"
+          - variant: lite
+            lo: "false"
+            ffmpeg: "false"
     steps:
       - uses: actions/checkout@v4
       - name: Login to GitHub Container Registry
@@ -26,7 +44,12 @@ jobs:
           file: Dockerfile.runtime.base
           platforms: linux/amd64
           push: true
+          # 传递构建参数
+          build-args: |
+            INSTALL_LIBREOFFICE=${{ matrix.lo }}
+            INSTALL_FFMPEG=${{ matrix.ffmpeg }}
+          # 动态打标签，例如 rust-red-runtime-base:full, rust-red-runtime-base:lite
           tags: |
-            ghcr.io/wsc-studio/rust-red-runtime-base:latest
-            ghcr.io/wsc-studio/rust-red-runtime-base:${{ github.sha }}
-          labels: rust-red-runtime-base
+            ghcr.io/wsc-studio/rust-red-runtime-base:${{ matrix.variant }}
+            ghcr.io/wsc-studio/rust-red-runtime-base:${{ matrix.variant }}-${{ github.sha }}
+          labels: rust-red-runtime-base-${{ matrix.variant }}
