@@ -1,0 +1,46 @@
+name: Build and Push Rust-Red [acms]
+permissions:
+  contents: read
+  packages: write
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile.amcs
+      - .github/workflows/rust-red-acms.yml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # 把rust-red主项目拉取下来
+      - name: Checkout private GitLab repository
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          # 1. 重要：配置 Git 自动为 git.wsc.tech 的请求添加 Token，解决子模块克隆失败问题
+          # 2. 执行递归克隆
+        run: |
+          git config --global url."https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/".insteadOf "https://git.wsc.tech/"
+          git clone --recursive -b acms --single-branch --depth 1 https://git.wsc.tech/base/rust-red-group/rust-red.git rust-red
+      # 注意：actions/checkout@v4 已经把本仓库（gs-build-deploy）拉取到了当前目录
+      # 因此不需要再次 clone 本仓库。
+
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.acms
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/wsc-studio/rust-red-acms:latest
+            ghcr.io/wsc-studio/rust-red-acms:${{ github.sha }}
+          labels: rust-red-acms
+
+  

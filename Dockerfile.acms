@@ -1,0 +1,47 @@
+# ==========================================
+# 阶段 1：构建主程序 (Host Builder)
+# ==========================================
+FROM ghcr.io/wsc-studio/rust-red-runtime-base:latest AS host-builder
+WORKDIR /app
+COPY ./rust-red /app
+
+# 临时修改Cargo.toml，移除stone-axe-engine依赖
+RUN sed -i '/stone-axe-engine/d' Cargo.toml && \
+    rm -f rust-toolchain.toml && \
+    rm -rf .cargo
+
+
+# 编译主程序
+ENV RUSTFLAGS="--cfg tokio_unstable -C link-args=-rdynamic"
+RUN cargo build --release
+
+# ==========================================
+# 阶段 3：最终运行时镜像 (Final Runtime)
+# ==========================================
+FROM ghcr.io/wsc-studio/rust-red-runtime-base:full
+WORKDIR /app
+
+# 0. 【新增】从 host-builder 提取 tokio-console 二进制文件
+# 这样你就可以通过 `docker exec -it <container> tokio-console` 进行调试了
+COPY --from=host-builder /usr/local/cargo/bin/tokio-console /usr/local/bin/
+
+# 从 host-builder 拷贝主程序
+# 复制编译好的二进制文件
+COPY --from=host-builder /app/target/release/rust-red-core /app/
+COPY --from=host-builder /app/target/release/*.so /app/ 
+COPY --from=host-builder /usr/local/lib/lua /usr/local/lib/lua
+COPY --from=host-builder /usr/local/share/lua /usr/local/share/lua
+COPY --from=host-builder /app/flow /app/flow
+COPY --from=host-builder /app/config /app/config
+COPY --from=host-builder /app/*.lua /app
+COPY --from=host-builder /app/*.so /app
+
+# 其他环境配置（MongoDB驱动等，保持原样）
+COPY --from=host-builder /mongo-c-driver-1.27.6/_install/include/* /usr/local/include/
+COPY --from=host-builder /mongo-c-driver-1.27.6/_install/lib/* /usr/local/lib/
+COPY --from=host-builder /mongo-c-driver-1.27.6/_install/bin/* /usr/local/bin/
+COPY --from=host-builder /mongo-c-driver-1.27.6/_install/share/* /usr/local/share/
+RUN ldconfig && ldconfig -p | grep libmongoc
+
+EXPOSE 8080 6669
+CMD ["./rust-red-core"]
