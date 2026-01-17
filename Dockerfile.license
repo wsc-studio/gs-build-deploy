@@ -1,0 +1,37 @@
+# 使用官方 Rust 镜像作为构建环境
+FROM rust:1.84-bookworm AS builder
+
+WORKDIR /app
+
+# 创建一个新的空 shell 项目
+RUN USER=root cargo new --bin offline-license-tool
+WORKDIR /app/offline-license-tool
+
+# 复制 manifests
+COPY offline-license-tool/Cargo.toml offline-license-tool/Cargo.lock ./
+
+# 构建依赖（缓存层）
+RUN cargo build --release
+RUN rm src/*.rs
+
+# 复制源代码
+COPY offline-license-tool/src ./src
+
+# 构建发布版本
+#更新最后修改时间，确保重新构建
+RUN touch src/main.rs
+RUN cargo build --release
+
+# 使用轻量级镜像作为运行时环境
+FROM debian:bookworm-slim
+
+# 安装必要的运行时依赖（如果有的话，例如 ca-certificates, libssl 等）
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 从构建器复制二进制文件
+COPY --from=builder /app/offline-license-tool/target/release/offline-license-tool /usr/local/bin/offline-license-tool
+
+# 设置启动命令
+ENTRYPOINT ["offline-license-tool"]
