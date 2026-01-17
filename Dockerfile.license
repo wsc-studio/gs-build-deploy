@@ -28,6 +28,8 @@ FROM debian:bookworm-slim
 # 安装必要的运行时依赖（如果有的话，例如 ca-certificates, libssl 等）
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    dmidecode \
+    util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 # 从构建器复制二进制文件
