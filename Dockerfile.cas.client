@@ -1,5 +1,5 @@
 # ---------------- 构建阶段 ----------------
-# 使用 CentOS 7.6 作为构建环境，确保编译产物兼容老版本 GLIBC
+# 使用 ghcr.io/wsc-studio/cas-builder-demo:latest (假设已更新为 Rust Slim 版本)
 FROM ghcr.io/wsc-studio/cas-builder-demo:latest AS builder
 
 WORKDIR /app
@@ -15,59 +15,44 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # ---------------- 运行阶段 ----------------
-FROM centos:7.6.1810
+# 切换为 Debian Slim 以匹配 Builder 的环境 (GLIBC 兼容)
+FROM debian:bookworm-slim
 
-# 1. 替换阿里云镜像源
-RUN curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo && \
-    sed -i -e '/mirrors.cloud.aliyuncs.com/d' -e '/mirrors.aliyuncs.com/d' /etc/yum.repos.d/CentOS-Base.repo && \
-    yum makecache
-
-# 2. 安装运行时依赖
-# unixODBC
-# 注意：这只安装了 ODBC 管理器。您还需要安装具体的数据库驱动 (如 Kingbase ODBC Driver)
-# 如果需要支持中文，建议安装 kde-l10n-Chinese 并配置 LANG 
-# 配置 ODBC 配置文件路径，确保 unixODBC 能找到 /etc 下的配置
-ENV ODBCSYSINI=/etc \
-    ODBCINI=/etc/odbc.ini
-
-RUN yum install -y  ca-certificates && \
-    yum clean all
+# 1. 安装运行时依赖
+# unixodbc: ODBC 驱动管理器 (替换原有的编译安装)
+# ca-certificates: HTTPS 支持
+# libssl3: OpenSSL 支持
+# curl: 调试用
+RUN apt-get update && apt-get install -y \
+    unixodbc \
+    ca-certificates \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 复制odbc相关
-COPY --from=builder /mnt/odbc-here/bin/* /usr/local/bin/
-COPY --from=builder /mnt/odbc-here/lib/* /usr/local/lib/
-COPY --from=builder /mnt/odbc-here/etc/* /etc/
-# 保存一份备用
-COPY --from=builder /mnt/odbc-here/bin/* /mnt/odbc-here/bin/
-COPY --from=builder /mnt/odbc-here/lib/* /mnt/odbc-here/lib/
-COPY --from=builder /mnt/odbc-here/etc/* /mnt/odbc-here/etc/
-
-# 设置 LD_LIBRARY_PATH 环境变量，确保运行时能找到动态库
+# 设置 LD_LIBRARY_PATH 环境变量
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # 复制 Kingbase ODBC 驱动
 COPY cas-web-demo/odbc-lib/libkci.so* /usr/local/lib/
 COPY cas-web-demo/odbc-lib/kdbodbcw.so /usr/local/lib/
-COPY cas-web-demo/odbc-lib/odbc.ini /etc/odbc-sample.ini
+COPY cas-web-demo/odbc-lib/odbc.ini /etc/odbc.ini
 
 # 更新动态链接库缓存
-RUN echo "/usr/local/lib" >> /etc/ld.so.conf.d/local.conf && ldconfig
+RUN ldconfig
 
-# 配置 Kingbase 驱动到 odbcinst.ini
+# 配置 Kingbase 驱动到 odbcinst.ini (Debian 默认路径 /etc/odbcinst.ini)
 RUN echo "[KingbaseES]" >> /etc/odbcinst.ini && \
     echo "Description = Kingbase ODBC Driver" >> /etc/odbcinst.ini && \
     echo "Driver = /usr/local/lib/kdbodbcw.so" >> /etc/odbcinst.ini && \
     echo "Setup = /usr/local/lib/kdbodbcw.so" >> /etc/odbcinst.ini && \
-    echo "FileUsage = 1" >> /etc/odbcinst.ini && \
-    cat /etc/odbc-sample.ini >> /etc/odbc.ini
-
-# 查看已安装的驱动
-# RUN odbcinst -j
+    echo "FileUsage = 1" >> /etc/odbcinst.ini
 
 # 复制编译好的二进制文件
 COPY --from=builder /app/target/release/web-demo-cas-client /usr/local/bin/web-demo-cas-client
+
 # 设置环境变量默认值 (建议在 docker run 时覆盖这些值)
 # 注意：localhost 在容器内指容器自己。如果 CAS 在宿主机，请使用 host.docker.internal (Docker Desktop) 或真实 IP
 # 设置环境变量默认值
