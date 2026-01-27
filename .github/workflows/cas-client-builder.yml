@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "Dockerfile.cas.client"
+      - "Dockerfile.cas.builder"
       - ".github/workflows/cas-client-builder.yml"
 jobs:
   build:

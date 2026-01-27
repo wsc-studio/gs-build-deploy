@@ -40,13 +40,16 @@ COPY --from=builder /mnt/odbc-here/bin/* /mnt/odbc-here/bin/
 COPY --from=builder /mnt/odbc-here/lib/* /mnt/odbc-here/lib/
 COPY --from=builder /mnt/odbc-here/etc/* /mnt/odbc-here/etc/
 
+# 设置 LD_LIBRARY_PATH 环境变量，确保运行时能找到动态库
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
 # 复制 Kingbase ODBC 驱动
 COPY cas-web-demo/odbc-lib/libkci.so* /usr/local/lib/
 COPY cas-web-demo/odbc-lib/kdbodbcw.so /usr/local/lib/
 COPY cas-web-demo/odbc-lib/odbc.ini /etc/odbc-sample.ini
 
 # 更新动态链接库缓存
-RUN ldconfig
+RUN echo "/usr/local/lib" >> /etc/ld.so.conf.d/local.conf && ldconfig
 
 # 配置 Kingbase 驱动到 odbcinst.ini
 RUN echo "[KingbaseES]" >> /etc/odbcinst.ini && \
