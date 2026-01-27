@@ -1,6 +1,7 @@
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{App, HttpResponse, HttpServer, Responder, cookie::Key, get, http::header, web};
 use bb8::{ManageConnection, Pool};
+use bb8_postgres::PostgresConnectionManager;
 use clap::Parser;
 use odbc_api::{Connection, ConnectionOptions, Cursor, Environment};
 use once_cell::sync::Lazy;
@@ -9,8 +10,9 @@ use quick_xml::reader::Reader;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::{MySqlPool, PgPool, Row};
 use std::sync::{Arc, Mutex};
-
+use tokio_postgres::NoTls;
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -25,6 +27,12 @@ pub struct Args {
     // 容器 docker run -e ENABLE_CONSOLE=true
     #[arg(long, short, env = "DSN")]
     pub dsn: Option<String>,
+    #[arg(short, long, env = "MYSQL_URL")]
+    pub mysql_url: Option<String>,
+    #[arg(short = 'g', long, env = "POSTGRESQL_URL")]
+    pub postgresql_url: Option<String>,
+    #[arg(short = 'k', long, env = "KINGBASE_URL")]
+    pub kingbase_url: Option<String>,
 }
 
 // --- 配置常量 ---
@@ -108,6 +116,14 @@ impl ManageConnection for OdbcConnectionManager {
 
 type DbPool = Pool<OdbcConnectionManager>;
 
+#[derive(Clone)]
+struct AppState {
+    odbc_pool: Option<DbPool>,
+    mysql_pool: Option<MySqlPool>,
+    pg_pool: Option<PgPool>,
+    kingbase_pool: Option<bb8::Pool<PostgresConnectionManager<NoTls>>>,
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
@@ -119,7 +135,7 @@ async fn main() -> std::io::Result<()> {
     let secret_key = Key::generate();
 
     // 初始化 bb8 连接池
-    let pool = match args.dsn.as_deref() {
+    let odbc_pool = match args.dsn.as_deref() {
         Some(dsn) => {
             println!("Using DSN: {}", dsn);
             let pool = Pool::builder()
@@ -135,10 +151,57 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    // 初始化 MySQL 连接池
+    let mysql_pool = match args.mysql_url.as_deref() {
+        Some(url) => {
+            println!("Using MySQL: {}", url);
+            let pool = MySqlPool::connect(url)
+                .await
+                .expect("Failed to create MySQL pool");
+            Some(pool)
+        }
+        None => None,
+    };
+
+    // 初始化 PostgreSQL 连接池
+    let pg_pool = match args.postgresql_url.as_deref() {
+        Some(url) => {
+            println!("Using PostgreSQL: {}", url);
+            let pool = PgPool::connect(url)
+                .await
+                .expect("Failed to create PostgreSQL pool");
+            Some(pool)
+        }
+        None => None,
+    };
+
+    // 初始化 Kingbase 连接池
+    let kingbase_pool = match args.kingbase_url.as_deref() {
+        Some(url) => {
+            println!("Using Kingbase: {}", url);
+            let mgr = PostgresConnectionManager::new_from_stringlike(url, NoTls)
+                .expect("Failed to create Kingbase connection manager");
+            let pool: bb8::Pool<PostgresConnectionManager<NoTls>> = Pool::builder()
+                .max_size(16)
+                .build(mgr)
+                .await
+                .expect("Failed to create Kingbase pool");
+            Some(pool)
+        }
+        None => None,
+    };
+
+    let app_state = web::Data::new(AppState {
+        odbc_pool,
+        mysql_pool,
+        pg_pool,
+        kingbase_pool,
+    });
+
     let port = args.port;
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(app_state.clone())
             .app_data(web::Data::new(args.clone()))
             // 启用 Session 中间件
             .wrap(SessionMiddleware::new(
@@ -150,6 +213,9 @@ async fn main() -> std::io::Result<()> {
             .service(logout)
             .service(cas_callback)
             .service(db_version)
+            .service(mysql_version)
+            .service(pg_version)
+            .service(kingbase_version)
     })
     .bind(("0.0.0.0", port))?
     .run()
@@ -158,8 +224,8 @@ async fn main() -> std::io::Result<()> {
 
 // 5. ODBC 数据库查询示例
 #[get("/db-version")]
-async fn db_version(pool: web::Data<Option<DbPool>>) -> impl Responder {
-    if let Some(pool) = pool.get_ref() {
+async fn db_version(data: web::Data<AppState>) -> impl Responder {
+    if let Some(pool) = &data.odbc_pool {
         let result = async {
             let conn = pool.get().await.map_err(|e| match e {
                 bb8::RunError::User(err) => err.to_string(),
@@ -173,7 +239,67 @@ async fn db_version(pool: web::Data<Option<DbPool>>) -> impl Responder {
             Err(e) => HttpResponse::InternalServerError().body(format!("Database error: {}", e)),
         }
     } else {
-        HttpResponse::InternalServerError().body("Database pool not initialized")
+        HttpResponse::InternalServerError().body("ODBC pool not initialized")
+    }
+}
+
+// 6. MySQL 数据库查询示例
+#[get("/mysql-version")]
+async fn mysql_version(data: web::Data<AppState>) -> impl Responder {
+    if let Some(pool) = &data.mysql_pool {
+        let result = sqlx::query("SELECT VERSION()").fetch_one(pool).await;
+
+        match result {
+            Ok(row) => {
+                let version: String = row.get(0);
+                HttpResponse::Ok().json(json!({ "version": version }))
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("MySQL error: {}", e)),
+        }
+    } else {
+        HttpResponse::InternalServerError().body("MySQL pool not initialized")
+    }
+}
+
+// 7. PostgreSQL 数据库查询示例
+#[get("/pg-version")]
+async fn pg_version(data: web::Data<AppState>) -> impl Responder {
+    if let Some(pool) = &data.pg_pool {
+        let result = sqlx::query("SELECT version()").fetch_one(pool).await;
+
+        match result {
+            Ok(row) => {
+                let version: String = row.get(0);
+                HttpResponse::Ok().json(json!({ "version": version }))
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("PostgreSQL error: {}", e)),
+        }
+    } else {
+        HttpResponse::InternalServerError().body("PostgreSQL pool not initialized")
+    }
+}
+
+// 8. Kingbase 数据库查询示例
+#[get("/kingbase-version")]
+async fn kingbase_version(data: web::Data<AppState>) -> impl Responder {
+    if let Some(pool) = &data.kingbase_pool {
+        match pool.get().await {
+            Ok(client) => match client.query_one("SELECT version(), now()::text", &[]).await {
+                Ok(row) => {
+                    let version: String = row.get(0);
+                    let now: String = row.get(1);
+                    println!("version: {}", version);
+                    println!("now: {}", now);
+                    HttpResponse::Ok().json(json!({ "version": version, "now": now }))
+                }
+                Err(e) => {
+                    HttpResponse::InternalServerError().body(format!("Kingbase error: {}", e))
+                }
+            },
+            Err(e) => HttpResponse::InternalServerError().body(format!("Kingbase error: {}", e)),
+        }
+    } else {
+        HttpResponse::InternalServerError().body("Kingbase pool not initialized")
     }
 }
 

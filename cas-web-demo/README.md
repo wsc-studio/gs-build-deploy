@@ -63,5 +63,7 @@ API 接口：`/db-version`
 ## 运行示例
 
 ```base
- -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -d Kingbase_local -p 8080
+ -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -d Kingbase_local -p 8080 -g postgres://postgres:'agjh^1127'@localhost/test -m mysql://root:'123'@localhost/cxgayunmas_new
+
+  -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -p 8080 -g postgres://SYSTEM:'tyjr123'@localhost:54321/TEST -m mysql://root:'123'@localhost/cxgayunmas_new -k "host=127.0.0.1 port=54321 user=SYSTEM password=tyjr123 dbname=TEST"
 ```

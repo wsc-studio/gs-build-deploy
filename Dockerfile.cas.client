@@ -79,5 +79,9 @@ CMD [ "web-demo-cas-client" ]
 # docker run -p 8080:8080 \
 #    -e CAS_SERVER_URL="http://192.168.1.100:8443/cas" \
 #    -e CLIENT_CALLBACK_URL="http://192.168.1.101:8080/callback" \
-#    -e DSN="DSN=MyDatabase;" \
+#    -e DSN="MyDatabase" \
+#    -e THIS_HOME_URL="http://192.168.1.101:8080" \
+#    -e POSTGRESQL_URL="postgres://SYSTEM:'tyjr123'@localhost:54321/TEST" \
+#    -e MYSQL_URL="mysql://root:'123'@localhost/cxgayunmas_new" \
+#    -e KINGBASE_URL="host=127.0.0.1 port=54321 user=SYSTEM password=tyjr123 dbname=TEST" \
 #    web-demo-cas-client
