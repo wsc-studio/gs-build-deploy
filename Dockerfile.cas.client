@@ -14,7 +14,7 @@ RUN yum groupinstall -y "Development Tools" && \
     wget https://www.unixodbc.org/unixODBC-2.3.14.tar.gz && \
     tar -zxf unixODBC-2.3.14.tar.gz && \
     cd unixODBC-2.3.14 && \
-    ./configure --prefix=/mnt/odbc-here --disable-gui --disable-drivers && \
+    ./configure --prefix=/mnt/odbc-here --disable-gui --disable-drivers CFLAGS="-std=gnu99" && \
     make && \
     make install 
 
@@ -64,6 +64,10 @@ WORKDIR /app
 COPY --from=builder /mnt/odbc-here/bin/* /usr/local/bin/
 COPY --from=builder /mnt/odbc-here/lib/* /usr/local/lib/
 COPY --from=builder /mnt/odbc-here/etc/* /etc/
+# 保存一份备用
+COPY --from=builder /mnt/odbc-here/bin/* /mnt/odbc-here/bin/
+COPY --from=builder /mnt/odbc-here/lib/* /mnt/odbc-here/lib/
+COPY --from=builder /mnt/odbc-here/etc/* /mnt/odbc-here/etc/
 
 # 复制 Kingbase ODBC 驱动
 COPY cas-web-demo/odbc-lib/libkci.so* /usr/local/lib/
