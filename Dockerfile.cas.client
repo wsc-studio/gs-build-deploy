@@ -9,7 +9,7 @@ RUN curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Ce
 # 2. 安装构建依赖 (gcc, linker, unixODBC-devel)
 # RUN yum install -y gcc unixODBC-devel
 RUN yum groupinstall -y "Development Tools" && \
-    yum install -y wget tar gzip && \
+    yum install -y wget tar gzip openssl-devel && \
     cd /tmp && \
     wget https://www.unixodbc.org/unixODBC-2.3.14.tar.gz && \
     tar -zxf unixODBC-2.3.14.tar.gz && \
