@@ -75,8 +75,7 @@ ENV PORT=8080 \
     CAS_SERVER_URL="http://host.docker.internal:8443/cas" \
     CLIENT_CALLBACK_URL="http://localhost:8080/callback" \
     THIS_HOME_URL="http://localhost:8080" \
-    RUST_LOG=info \
-    DSN="Kingbase"
+    RUST_LOG=info 
 
 CMD [ "web-demo-cas-client" ]
 
