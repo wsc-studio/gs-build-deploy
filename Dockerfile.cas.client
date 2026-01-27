@@ -4,6 +4,10 @@ FROM ghcr.io/wsc-studio/cas-builder-demo:latest AS builder
 
 WORKDIR /app
 
+# 更新依赖定义
+COPY cas-web-demo/Cargo.toml ./Cargo.toml
+COPY cas-web-demo/Cargo.lock ./Cargo.lock
+
 # 5. 编译真实源码
 COPY cas-web-demo/src ./src
 # 强制更新 mtime 触发重编译
