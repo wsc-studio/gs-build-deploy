@@ -1,0 +1,27 @@
+[package]
+name = "web-demo-cas-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4"
+actix-session = { version = "0.11", features = ["cookie-session"] }
+tokio = { version = "1", features = ["full"] }
+# reqwest 默认使用 rustls-tls ，而新版本的 rustls 依赖 aws-lc-rs 。在 Windows 上编译 aws-lc-rs (C代码) 时需要：
+#
+#1. NASM (Netwide Assembler) ：错误日志 NASM failed ... 明确指出了 NASM 编译失败。
+#2. Perl ：有时也需要 Perl 环境。
+reqwest = { version = "0.11", default-features = false, features = [
+    "json",
+    "native-tls",
+] }
+serde = { version = "1.0", features = ["derive"] }
+quick-xml = { version = "0.39", features = ["serialize"] }
+odbc-api = "20"
+serde_json = "1.0"
+bb8 = "0.9"
+once_cell = "1.19"
+url = "2.5"
+env_logger = "0.11"
+log = "0.4"
+clap = { version = "4.5.54", features = ["derive", "env"] }

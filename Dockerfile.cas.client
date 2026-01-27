@@ -1,0 +1,105 @@
+# ---------------- 构建阶段 ----------------
+# 使用 CentOS 7.6 作为构建环境，确保编译产物兼容老版本 GLIBC
+FROM centos:7.6.1810 AS builder
+
+# 1. 替换阿里云镜像源 (CentOS 7 已 EOL，必须换源)
+RUN curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo && \
+    sed -i -e '/mirrors.cloud.aliyuncs.com/d' -e '/mirrors.aliyuncs.com/d' /etc/yum.repos.d/CentOS-Base.repo && \
+    yum makecache
+# 2. 安装构建依赖 (gcc, linker, unixODBC-devel)
+# RUN yum install -y gcc unixODBC-devel
+RUN yum groupinstall -y "Development Tools" && \
+    yum install -y wget tar gzip && \
+    cd /tmp && \
+    wget https://www.unixodbc.org/unixODBC-2.3.14.tar.gz && \
+    tar -zxf unixODBC-2.3.14.tar.gz && \
+    cd unixODBC-2.3.14 && \
+    ./configure --prefix=/mnt/odbc-here --disable-gui --disable-drivers && \
+    make && \
+    make install 
+
+# /mnt/odbc/here bin/lib/etc 目录下的文件需要复制到运行时环境
+# 运行时环境需要安装 unixODBC 管理器，以及具体的数据库驱动 (如 Kingbase ODBC Driver)
+
+# 3. 安装 Rust 环境
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /app
+
+# 4. 依赖缓存层
+COPY cas-web-demo/Cargo.toml cas-web-demo/Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+# 在 CentOS 环境下默认编译为 gnu target，兼容性最好
+RUN cargo build --release
+
+# 5. 编译真实源码
+COPY cas-web-demo/src ./src
+# 强制更新 mtime 触发重编译
+RUN touch src/main.rs
+RUN cargo build --release
+
+# ---------------- 运行阶段 ----------------
+FROM centos:7.6.1810
+
+# 1. 替换阿里云镜像源
+RUN curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo && \
+    sed -i -e '/mirrors.cloud.aliyuncs.com/d' -e '/mirrors.aliyuncs.com/d' /etc/yum.repos.d/CentOS-Base.repo && \
+    yum makecache
+
+# 2. 安装运行时依赖
+# unixODBC
+# 注意：这只安装了 ODBC 管理器。您还需要安装具体的数据库驱动 (如 Kingbase ODBC Driver)
+# 如果需要支持中文，建议安装 kde-l10n-Chinese 并配置 LANG 
+# 配置 ODBC 配置文件路径，确保 unixODBC 能找到 /etc 下的配置
+ENV ODBCSYSINI=/etc \
+    ODBCINI=/etc/odbc.ini
+
+RUN yum install -y  ca-certificates && \
+    yum clean all
+
+WORKDIR /app
+
+# 复制odbc相关
+COPY --from=builder /mnt/odbc-here/bin/* /usr/local/bin/
+COPY --from=builder /mnt/odbc-here/lib/* /usr/local/lib/
+COPY --from=builder /mnt/odbc-here/etc/* /etc/
+
+# 复制 Kingbase ODBC 驱动
+COPY cas-web-demo/odbc-lib/libkci.so* /usr/local/lib/
+COPY cas-web-demo/odbc-lib/kdbodbcw.so /usr/local/lib/
+COPY cas-web-demo/odbc-lib/odbc.ini /etc/odbc-sample.ini
+
+# 更新动态链接库缓存
+RUN ldconfig
+
+# 配置 Kingbase 驱动到 odbcinst.ini
+RUN echo "[KingbaseES]" >> /etc/odbcinst.ini && \
+    echo "Description = Kingbase ODBC Driver" >> /etc/odbcinst.ini && \
+    echo "Driver = /usr/local/lib/kdbodbcw.so" >> /etc/odbcinst.ini && \
+    echo "Setup = /usr/local/lib/kdbodbcw.so" >> /etc/odbcinst.ini && \
+    echo "FileUsage = 1" >> /etc/odbcinst.ini && \
+    cat /etc/odbc-sample.ini >> /etc/odbc.ini
+
+# 查看已安装的驱动
+# RUN odbcinst -j
+
+# 复制编译好的二进制文件
+COPY --from=builder /app/target/release/web-demo-cas-client /usr/local/bin/web-demo-cas-client
+# 设置环境变量默认值 (建议在 docker run 时覆盖这些值)
+# 注意：localhost 在容器内指容器自己。如果 CAS 在宿主机，请使用 host.docker.internal (Docker Desktop) 或真实 IP
+# 设置环境变量默认值
+ENV PORT=8080 \
+    CAS_SERVER_URL="http://host.docker.internal:8443/cas" \
+    CLIENT_CALLBACK_URL="http://localhost:8080/callback" \
+    THIS_HOME_URL="http://localhost:8080" \
+    RUST_LOG=info \
+    DSN="Kingbase"
+
+CMD [ "web-demo-cas-client" ]
+
+# docker run -p 8080:8080 \
+#    -e CAS_SERVER_URL="http://192.168.1.100:8443/cas" \
+#    -e CLIENT_CALLBACK_URL="http://192.168.1.101:8080/callback" \
+#    -e DSN="DSN=MyDatabase;" \
+#    web-demo-cas-client
