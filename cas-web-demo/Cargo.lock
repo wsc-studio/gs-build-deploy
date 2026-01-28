@@ -570,7 +570,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fac4744fb15ae8337dc853fee7fb3f4e48c0fbaa23d0afe49c447b4fab126118"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -3660,6 +3662,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
+name = "uuid"
+version = "1.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee48d38b119b0cd71fe4141b30f5ba9c7c5d9f4e7a3a8b4a674e4b6ef789976f"
+dependencies = [
+ "getrandom 0.3.4",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3794,10 +3807,13 @@ version = "0.1.0"
 dependencies = [
  "actix-session",
  "actix-web",
+ "base64 0.22.1",
  "bb8",
  "bb8-postgres",
+ "chrono",
  "clap",
  "env_logger",
+ "hmac",
  "log",
  "odbc-api",
  "once_cell",
@@ -3805,10 +3821,12 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha1",
  "sqlx",
  "tokio",
  "tokio-postgres",
  "url",
+ "uuid",
 ]
 
 [[package]]

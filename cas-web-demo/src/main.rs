@@ -1,5 +1,7 @@
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
-use actix_web::{App, HttpResponse, HttpServer, Responder, cookie::Key, get, http::header, web};
+use actix_web::{
+    App, HttpResponse, HttpServer, Responder, cookie::Key, get, http::header, post, web,
+};
 use bb8::{ManageConnection, Pool};
 use bb8_postgres::PostgresConnectionManager;
 use clap::Parser;
@@ -13,6 +15,9 @@ use serde_json::json;
 use sqlx::{MySqlPool, PgPool, Row};
 use std::sync::{Arc, Mutex};
 use tokio_postgres::NoTls;
+
+mod aliyun_sms;
+
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -29,10 +34,22 @@ pub struct Args {
     pub dsn: Option<String>,
     #[arg(short, long, env = "MYSQL_URL")]
     pub mysql_url: Option<String>,
-    #[arg(short = 'g', long, env = "POSTGRESQL_URL")]
+    #[arg(short = 'g', long, env = "POSTGRES_URL")]
     pub postgresql_url: Option<String>,
     #[arg(short = 'k', long, env = "KINGBASE_URL")]
     pub kingbase_url: Option<String>,
+
+    // 阿里云短信配置
+    #[arg(long, env = "ALIYUN_ACCESS_KEY_ID")]
+    pub aliyun_access_key_id: Option<String>,
+    #[arg(long, env = "ALIYUN_ACCESS_KEY_SECRET")]
+    pub aliyun_access_key_secret: Option<String>,
+    #[arg(long, env = "ALIYUN_SMS_SIGN_NAME", default_value = "速通互联验证码")]
+    pub aliyun_sms_sign_name: String,
+    #[arg(long, env = "ALIYUN_SMS_TEMPLATE_CODE", default_value = "100001")]
+    pub aliyun_sms_template_code: String,
+    #[arg(long, env = "ALIYUN_SMS_SCENE_CODE", default_value = "")]
+    pub aliyun_sms_scene_code: String,
 }
 
 // --- 配置常量 ---
@@ -117,11 +134,20 @@ impl ManageConnection for OdbcConnectionManager {
 type DbPool = Pool<OdbcConnectionManager>;
 
 #[derive(Clone)]
+struct SmsConfig {
+    sign_name: String,
+    template_code: String,
+    scene_code: String,
+}
+
+#[derive(Clone)]
 struct AppState {
     odbc_pool: Option<DbPool>,
     mysql_pool: Option<MySqlPool>,
     pg_pool: Option<PgPool>,
     kingbase_pool: Option<bb8::Pool<PostgresConnectionManager<NoTls>>>,
+    sms_client: Option<aliyun_sms::AliyunSmsClient>,
+    sms_config: SmsConfig,
 }
 
 #[actix_web::main]
@@ -130,6 +156,7 @@ async fn main() -> std::io::Result<()> {
 
     // 解析命令行参数
     let args = Args::parse();
+    println!("args: [{:?}]", &args);
 
     // 生成一个随机密钥用于 Session 加密 (生产环境请固定)
     let secret_key = Key::generate();
@@ -146,7 +173,7 @@ async fn main() -> std::io::Result<()> {
             Some(pool)
         }
         None => {
-            println!("Using default DSN: DSN=Kingbase_local;");
+            println!("Using default DSN: None;");
             None
         }
     };
@@ -191,11 +218,31 @@ async fn main() -> std::io::Result<()> {
         None => None,
     };
 
+    // 初始化阿里云短信客户端
+    let sms_client = if let (Some(ak), Some(sk)) = (
+        args.aliyun_access_key_id.as_deref(),
+        args.aliyun_access_key_secret.as_deref(),
+    ) {
+        println!("Using Aliyun SMS");
+        Some(aliyun_sms::AliyunSmsClient::new(ak, sk))
+    } else {
+        println!("Aliyun SMS not configured");
+        None
+    };
+
+    let sms_config = SmsConfig {
+        sign_name: args.aliyun_sms_sign_name.clone(),
+        template_code: args.aliyun_sms_template_code.clone(),
+        scene_code: args.aliyun_sms_scene_code.clone(),
+    };
+
     let app_state = web::Data::new(AppState {
         odbc_pool,
         mysql_pool,
         pg_pool,
         kingbase_pool,
+        sms_client,
+        sms_config,
     });
 
     let port = args.port;
@@ -216,10 +263,189 @@ async fn main() -> std::io::Result<()> {
             .service(mysql_version)
             .service(pg_version)
             .service(kingbase_version)
+            .service(send_sms_code)
+            .service(verify_sms_code)
+            .service(get_auth_token_handler)
+            .service(get_phone_with_token_handler)
+            .service(verify_phone_with_token_handler)
     })
     .bind(("0.0.0.0", port))?
     .run()
     .await
+}
+
+// --- API Endpoints ---
+
+#[derive(Deserialize)]
+struct SendSmsParams {
+    phone: String,
+}
+
+// 发送短信验证码
+#[post("/sms/send")]
+async fn send_sms_code(
+    data: web::Data<AppState>,
+    params: web::Json<SendSmsParams>,
+) -> impl Responder {
+    if let Some(client) = &data.sms_client {
+        // 使用配置的签名和模板
+        let sign_name = &data.sms_config.sign_name;
+        let template_code = &data.sms_config.template_code;
+        // 使用 ##code## 让阿里云自动生成验证码
+        let template_param = "{\"code\":\"##code##\"}";
+
+        match client
+            .send_sms_verify_code(&params.phone, sign_name, template_code, template_param)
+            .await
+        {
+            Ok(resp) => {
+                if resp.code == "OK" {
+                    HttpResponse::Ok().json(json!({ "status": "success", "message": "发送成功", "biz_id": resp.biz_id }))
+                } else {
+                    HttpResponse::BadRequest().json(
+                        json!({ "status": "error", "message": resp.message, "code": resp.code }),
+                    )
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("Sms error: {}", e)),
+        }
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .json(json!({ "status": "error", "message": "SMS client not configured" }))
+    }
+}
+
+#[derive(Deserialize)]
+struct VerifySmsParams {
+    phone: String,
+    code: String,
+}
+
+// 校验短信验证码
+#[post("/sms/verify")]
+async fn verify_sms_code(
+    data: web::Data<AppState>,
+    params: web::Json<VerifySmsParams>,
+) -> impl Responder {
+    if let Some(client) = &data.sms_client {
+        match client
+            .check_sms_verify_code(&params.phone, &params.code)
+            .await
+        {
+            Ok(resp) => {
+                if resp.code == "OK" {
+                    HttpResponse::Ok().json(json!({ "status": "success", "message": "验证通过" }))
+                } else {
+                    HttpResponse::BadRequest().json(
+                        json!({ "status": "error", "message": resp.message, "code": resp.code }),
+                    )
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("Sms error: {}", e)),
+        }
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .json(json!({ "status": "error", "message": "SMS client not configured" }))
+    }
+}
+
+#[derive(Deserialize)]
+struct AuthTokenParams {
+    origin_url: Option<String>,
+}
+
+// 获取 H5 认证授权 Token
+#[post("/auth/token")]
+async fn get_auth_token_handler(
+    data: web::Data<AppState>,
+    params: web::Json<AuthTokenParams>,
+) -> impl Responder {
+    if let Some(client) = &data.sms_client {
+        let scene_code = &data.sms_config.scene_code;
+        let origin_url = params.origin_url.as_deref().unwrap_or("");
+
+        match client.get_auth_token(scene_code, origin_url).await {
+            Ok(resp) => {
+                if resp.code == "OK" {
+                    HttpResponse::Ok()
+                        .json(json!({ "status": "success", "token_info": resp.token_info }))
+                } else {
+                    HttpResponse::BadRequest().json(
+                        json!({ "status": "error", "message": resp.message, "code": resp.code }),
+                    )
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("Auth error: {}", e)),
+        }
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .json(json!({ "status": "error", "message": "SMS client not configured" }))
+    }
+}
+
+#[derive(Deserialize)]
+struct GetPhoneParams {
+    sp_token: String,
+}
+
+// 一键登录取号
+#[post("/auth/phone")]
+async fn get_phone_with_token_handler(
+    data: web::Data<AppState>,
+    params: web::Json<GetPhoneParams>,
+) -> impl Responder {
+    if let Some(client) = &data.sms_client {
+        match client.get_phone_with_token(&params.sp_token).await {
+            Ok(resp) => {
+                if resp.code == "OK" {
+                    HttpResponse::Ok().json(json!({ "status": "success", "data": resp.data }))
+                } else {
+                    HttpResponse::BadRequest().json(
+                        json!({ "status": "error", "message": resp.message, "code": resp.code }),
+                    )
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("Auth error: {}", e)),
+        }
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .json(json!({ "status": "error", "message": "SMS client not configured" }))
+    }
+}
+
+#[derive(Deserialize)]
+struct VerifyPhoneParams {
+    sp_token: String,
+    phone_number: String,
+}
+
+// 本机号码校验
+#[post("/auth/verify")]
+async fn verify_phone_with_token_handler(
+    data: web::Data<AppState>,
+    params: web::Json<VerifyPhoneParams>,
+) -> impl Responder {
+    if let Some(client) = &data.sms_client {
+        match client
+            .verify_phone_with_token(&params.sp_token, &params.phone_number)
+            .await
+        {
+            Ok(resp) => {
+                if resp.code == "OK" {
+                    HttpResponse::Ok()
+                        .json(json!({ "status": "success", "gate_verify": resp.gate_verify }))
+                } else {
+                    HttpResponse::BadRequest().json(
+                        json!({ "status": "error", "message": resp.message, "code": resp.code }),
+                    )
+                }
+            }
+            Err(e) => HttpResponse::InternalServerError().body(format!("Auth error: {}", e)),
+        }
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .json(json!({ "status": "error", "message": "SMS client not configured" }))
+    }
 }
 
 // 5. ODBC 数据库查询示例

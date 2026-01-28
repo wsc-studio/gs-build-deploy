@@ -66,4 +66,39 @@ API 接口：`/db-version`
  -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -d Kingbase_local -p 8080 -g postgres://postgres:'agjh^1127'@localhost/test -m mysql://root:'123'@localhost/cxgayunmas_new
 
   -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -p 8080 -g postgres://SYSTEM:'tyjr123'@localhost:54321/TEST -m mysql://root:'123'@localhost/cxgayunmas_new -k "host=127.0.0.1 port=54321 user=SYSTEM password=tyjr123 dbname=TEST"
+
+cargo run -- -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080  -k "host=172.32.46.22 port=54321 user=SYSTEM password=tyjr123 dbname=KM_SWB" -g postgres://SYSTEM:tyjr123@172.32.46.22:54321/KM_SWB -m "mysql://root:tyjr123!!%40%23@172.32.46.22:3306/km_bfyz"
 ```
+
+## 验证码发送和验证
+
+```bash
+curl -X POST http://localhost:8080/sms/send ^
+     -H "Content-Type: application/json" ^
+     -d "{\"phone\": \"13800138000\"}"
+
+curl -X POST http://localhost:8080/sms/verify ^
+     -H "Content-Type: application/json" ^
+     -d "{\"phone\": \"13800138000\", \"code\": \"123456\"}"
+
+# 获取 H5 认证授权 Token
+curl -X POST http://localhost:8080/auth/token ^
+     -H "Content-Type: application/json" ^
+     -d "{\"origin_url\": \"https://your-h5-page.com\"}"
+
+# 一键登录取号 (H5) 前端获取到 SpToken 后调用此接口：
+curl -X POST http://localhost:8080/auth/phone ^
+     -H "Content-Type: application/json" ^
+     -d "{\"sp_token\": \"前端获取的SpToken\"}"
+
+# 本机号码校验 (H5) 前端获取到 SpToken 并用户输入手机号后调用：
+curl -X POST http://localhost:8080/auth/verify ^
+     -H "Content-Type: application/json" ^
+     -d "{\"sp_token\": \"前端获取的SpToken\", \"phone_number\": \"13800138000\"}"
+```
+
+## 地域名称 地域ID 公网接入地址
+
+- 华东1（杭州） cn-hangzhou dypnsapi.aliyuncs.com
+- 华东2（上海） cn-shanghai dypnsapi.aliyuncs.com
+- 华南1（深圳） cn-shenzhen dypnsapi.aliyuncs.com
