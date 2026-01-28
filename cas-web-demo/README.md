@@ -67,19 +67,19 @@ API 接口：`/db-version`
 
   -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080 -p 8080 -g postgres://SYSTEM:'tyjr123'@localhost:54321/TEST -m mysql://root:'123'@localhost/cxgayunmas_new -k "host=127.0.0.1 port=54321 user=SYSTEM password=tyjr123 dbname=TEST"
 
-cargo run -- -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080  -k "host=172.32.46.22 port=54321 user=SYSTEM password=tyjr123 dbname=KM_SWB" -g postgres://SYSTEM:tyjr123@172.32.46.22:54321/KM_SWB -m "mysql://root:tyjr123!!%40%23@172.32.46.22:3306/km_bfyz"
+cargo run -- -c http://localhost:8080/callback -s http://localhost:8443/cas -t http://localhost:8080  -k "host=172.32.46.22 port=54321 user=SYSTEM password=tyjr123 dbname=KM_SWB" -g postgres://SYSTEM:tyjr123@172.32.46.22:54321/KM_SWB -m "mysql://root:tyjr123!%40%23@172.32.46.22:3306/km_bfyz"
 ```
 
 ## 验证码发送和验证
 
 ```bash
-curl -X POST http://localhost:8080/sms/send ^
-     -H "Content-Type: application/json" ^
-     -d "{\"phone\": \"13800138000\"}"
+curl -X POST http://localhost:8080/sms/send \
+     -H "Content-Type: application/json" \
+     -d "{\"phone\": \"13987193193\"}"
 
-curl -X POST http://localhost:8080/sms/verify ^
-     -H "Content-Type: application/json" ^
-     -d "{\"phone\": \"13800138000\", \"code\": \"123456\"}"
+curl -X POST http://localhost:8080/sms/verify \
+     -H "Content-Type: application/json" \
+     -d "{\"phone\": \"13987193193\", \"code\": \"6509\"}"
 
 # 获取 H5 认证授权 Token
 curl -X POST http://localhost:8080/auth/token ^

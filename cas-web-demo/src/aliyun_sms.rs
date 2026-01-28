@@ -107,13 +107,23 @@ pub struct VerifyPhoneResponse {
 }
 
 impl AliyunSmsClient {
-    pub fn new(access_key_id: &str, access_key_secret: &str) -> Self {
+    pub fn new(access_key_id: &str, access_key_secret: &str, region_id: &str) -> Self {
+        let client = Client::builder()
+            .http1_only()
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
+        let endpoint = if region_id.is_empty() || region_id == "cn-hangzhou" {
+            "https://dypnsapi.aliyuncs.com".to_string()
+        } else {
+            format!("https://dypnsapi.{}.aliyuncs.com", region_id)
+        };
+
         Self {
             access_key_id: access_key_id.to_string(),
             access_key_secret: access_key_secret.to_string(),
-            // 切换为号码认证服务 Endpoint
-            endpoint: "https://dypnsapi.aliyuncs.com".to_string(),
-            client: Client::new(),
+            endpoint,
+            client,
         }
     }
 
@@ -179,6 +189,12 @@ impl AliyunSmsClient {
         params.insert("TemplateCode", template_code);
         params.insert("TemplateParam", template_param);
 
+        // 当使用了 ##code## 占位符时，CodeType 必填
+        // CodeType: 1 (纯数字), 2 (纯大写字母), 3 (纯小写字母), ...
+        if template_param.contains("##code##") {
+            params.insert("CodeType", "1");
+        }
+
         self.do_request("SendSmsVerifyCode", params).await
     }
 
@@ -234,11 +250,17 @@ impl AliyunSmsClient {
 
     fn sign(&self, params: &BTreeMap<&str, &str>) -> String {
         // 1. 构造规范化查询字符串 (CanonicalizedQueryString)
-        let mut query_string = form_urlencoded::Serializer::new(String::new());
+        // 按照参数名称的字典顺序对请求参数进行排序 (BTreeMap 已经做了)
+        // 对每个请求参数的名称和值进行编码 (使用特殊的 percent_encode)
+        // 对编码后的参数名称和值使用英文等号（=）进行连接
+        // 再把所有参数值对使用英文与号（&）连接
+        let mut params_vec = Vec::new();
         for (k, v) in params {
-            query_string.append_pair(k, v);
+            let encoded_k = percent_encode(k);
+            let encoded_v = percent_encode(v);
+            params_vec.push(format!("{}={}", encoded_k, encoded_v));
         }
-        let canonicalized_query_string = query_string.finish();
+        let canonicalized_query_string = params_vec.join("&");
 
         // 2. 构造签名字符串 (StringToSign)
         // StringToSign = HTTPMethod + "&" + percentEncode("/") + "&" + percentEncode(CanonicalizedQueryString)

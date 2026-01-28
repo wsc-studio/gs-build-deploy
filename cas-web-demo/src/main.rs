@@ -50,6 +50,8 @@ pub struct Args {
     pub aliyun_sms_template_code: String,
     #[arg(long, env = "ALIYUN_SMS_SCENE_CODE", default_value = "")]
     pub aliyun_sms_scene_code: String,
+    #[arg(long, env = "ALIYUN_REGION_ID", default_value = "cn-hangzhou")]
+    pub aliyun_region_id: String,
 }
 
 // --- 配置常量 ---
@@ -224,7 +226,11 @@ async fn main() -> std::io::Result<()> {
         args.aliyun_access_key_secret.as_deref(),
     ) {
         println!("Using Aliyun SMS");
-        Some(aliyun_sms::AliyunSmsClient::new(ak, sk))
+        Some(aliyun_sms::AliyunSmsClient::new(
+            ak,
+            sk,
+            args.aliyun_region_id.as_ref(),
+        ))
     } else {
         println!("Aliyun SMS not configured");
         None
@@ -292,7 +298,7 @@ async fn send_sms_code(
         let sign_name = &data.sms_config.sign_name;
         let template_code = &data.sms_config.template_code;
         // 使用 ##code## 让阿里云自动生成验证码
-        let template_param = "{\"code\":\"##code##\"}";
+        let template_param = "{\"code\":\"##code##\", \"min\":\"5\"}";
 
         match client
             .send_sms_verify_code(&params.phone, sign_name, template_code, template_param)
@@ -307,7 +313,9 @@ async fn send_sms_code(
                     )
                 }
             }
-            Err(e) => HttpResponse::InternalServerError().body(format!("Sms error: {}", e)),
+            Err(e) => {
+                HttpResponse::InternalServerError().body(format!("send_sms_code error: {:?}", e))
+            }
         }
     } else {
         HttpResponse::ServiceUnavailable()
@@ -341,7 +349,9 @@ async fn verify_sms_code(
                     )
                 }
             }
-            Err(e) => HttpResponse::InternalServerError().body(format!("Sms error: {}", e)),
+            Err(e) => {
+                HttpResponse::InternalServerError().body(format!("verify_sms_code error: {}", e))
+            }
         }
     } else {
         HttpResponse::ServiceUnavailable()
@@ -531,9 +541,10 @@ async fn kingbase_version(data: web::Data<AppState>) -> impl Responder {
 
 // 1. 首页 (受保护资源)
 #[get("/")]
-async fn index(session: Session) -> impl Responder {
+async fn index(session: Session, args: web::Data<Args>) -> impl Responder {
     // 检查 Session 中是否有用户信息
     if let Ok(Some(user)) = session.get::<CasUser>("user") {
+        println!("已登录，{:?}", user);
         let mut html = format!("<h1>欢迎回来, {}!</h1>", user.username);
         html.push_str("<h3>用户属性:</h3><ul>");
         for (k, v) in user.attributes {
@@ -542,9 +553,14 @@ async fn index(session: Session) -> impl Responder {
         html.push_str("</ul><br/><a href='/logout'>退出登录</a>");
         HttpResponse::Ok().body(html)
     } else {
-        // 未登录，重定向到本地登录处理
+        // 未登录，直接重定向到 CAS 登录页面
+        let cas_login_url = format!(
+            "{}/login?service={}",
+            args.cas_server_url, args.client_callback_url
+        );
+        println!("未登录，跳转单点登录");
         HttpResponse::Found()
-            .append_header((header::LOCATION, "/login"))
+            .append_header((header::LOCATION, cas_login_url))
             .finish()
     }
 }
@@ -571,9 +587,20 @@ struct CasCallbackParams {
 #[get("/callback")]
 async fn cas_callback(
     session: Session,
+    req: actix_web::HttpRequest, // 获取原始请求对象
     params: web::Query<CasCallbackParams>,
     args: web::Data<Args>,
 ) -> impl Responder {
+    // 打印原始查询字符串
+    println!("CAS Callback Query String: {:?}", req.query_string());
+
+    // 或者打印所有参数对
+    let all_params: std::collections::HashMap<String, String> =
+        web::Query::from_query(req.query_string())
+            .unwrap_or(web::Query(std::collections::HashMap::new()))
+            .into_inner();
+    println!("CAS Callback All Params: {:?}", all_params);
+
     let ticket = &params.ticket;
 
     // 向 CAS Server 发起后端验证请求
@@ -582,6 +609,7 @@ async fn cas_callback(
         "{}/p3/serviceValidate?service={}&ticket={}",
         args.cas_server_url, args.client_callback_url, ticket
     );
+    println!("验证票据 {:?}", validate_url);
 
     // 发起 HTTP 请求 (这里使用 blocking client 简化，actix 中建议用 reqwest::Client 的 async 方法)
     let response = match Client::new().get(&validate_url).send().await {
