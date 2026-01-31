@@ -8,20 +8,36 @@ RUN cargo install tokio-console
 # 安装Lua和必要依赖
 RUN apt-get update \
    && apt-get install -y lua5.4 lua5.4-dev \
-   && apt-get install -y libpq-dev cmake clang libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev pkg-config libssl-dev curl libcurl4-openssl-dev libcurl4 git build-essential unzip
+   libpq-dev cmake clang libavcodec-dev libavformat-dev libavutil-dev \
+   libavdevice-dev pkg-config libssl-dev curl libcurl4-openssl-dev \
+   libcurl4 git build-essential unzip libreadline-dev \
+   libsqlite3-dev default-libmysqlclient-dev libc6-dev
+
+ENV LUA_COMMON_ARGS="LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4"
 
 # 安装luarocks和Lua模块
 COPY resources/luarocks-3.12.2.tar.gz .
 RUN tar zxpf luarocks-3.12.2.tar.gz \
-   && cd luarocks-3.12.2 && ./configure && make && make install \
-   && luarocks install luasql-postgres PGSQL_INCDIR=/usr/include/postgresql LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install lua-cjson LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install luaossl LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install jsonschema LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install luasocket LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install luasystem LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install uuid LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4 \
-   && luarocks install luasec LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4
+   && cd luarocks-3.12.2 && ./configure \
+   && make && make install \
+   && cd .. && rm -rf luarocks-3.12.2 luarocks-3.12.2.tar.gz \
+   && luarocks install luasql-postgres PGSQL_INCDIR=/usr/include/postgresql ${LUA_COMMON_ARGS} \
+   && luarocks install lua-cjson ${LUA_COMMON_ARGS} \
+   && luarocks install luaossl ${LUA_COMMON_ARGS} \
+   && luarocks install jsonschema ${LUA_COMMON_ARGS} \
+   && luarocks install luasocket ${LUA_COMMON_ARGS} \
+   && luarocks install luasystem ${LUA_COMMON_ARGS} \
+   && luarocks install uuid ${LUA_COMMON_ARGS} \
+   && luarocks install luasec ${LUA_COMMON_ARGS} \
+   && luarocks install base64 ${LUA_COMMON_ARGS} \
+   && luarocks install md5 ${LUA_COMMON_ARGS} \
+   && luarocks install luassert ${LUA_COMMON_ARGS} \
+   && luarocks install bit32 ${LUA_COMMON_ARGS} \
+   && luarocks install Lua-cURL CURL_INCDIR=/usr/include/x86_64-linux-gnu ${LUA_COMMON_ARGS} \
+   && luarocks install luafilesystem ${LUA_COMMON_ARGS} \
+   && luarocks install lua-iconv ${LUA_COMMON_ARGS} \
+   && luarocks install luasql-sqlite3 ${LUA_COMMON_ARGS} \
+   && luarocks install luasql-mysql MYSQL_INCDIR=/usr/include/mysql ${LUA_COMMON_ARGS} 
 
 # 安装MongoDB C驱动
 COPY resources/mongo-c-driver-1.27.6.tar.gz .
@@ -39,4 +55,5 @@ RUN tar zxf mongo-c-driver-1.27.6.tar.gz \
    -D ENABLE_MONGOC=ON \
    && cmake --build $BUILD --config RelWithDebInfo --parallel \
    && cmake --install "$BUILD" --prefix "$PREFIX" --config RelWithDebInfo \
-   && luarocks install lua-mongo LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX" LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4
+   && rm -rf "$SOURCE/src" "$SOURCE/_build" "$SOURCE/*.gz" "$SOURCE/../mongo-c-driver-1.27.6.tar.gz" \
+   && luarocks install lua-mongo LIBBSON_DIR="$PREFIX" LIBMONGOC_DIR="$PREFIX" ${LUA_COMMON_ARGS}
