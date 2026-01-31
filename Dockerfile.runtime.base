@@ -17,7 +17,7 @@ RUN sed -i 's/main/main contrib non-free/' /etc/apt/sources.list \
    git build-essential libcurl4-openssl-dev libcurl4 dmidecode util-linux  \
    # --- 条件安装 FFmpeg ---
    && if [ "$INSTALL_FFMPEG" = "true" ]; then \
-   apt-get install -y libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
+   apt-get install -y libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev; \
    fi \
    # --- 条件安装 LibreOffice ---
    && if [ "$INSTALL_LIBREOFFICE" = "true" ]; then \
