@@ -9,11 +9,15 @@ ARG LIBREOFFICE_URL=http://download.documentfoundation.org/libreoffice/stable/25
 RUN sed -i 's/main/main contrib non-free/' /etc/apt/sources.list \
    && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections \
    && apt-get update \
-   && apt-get install -y libpq5 ca-certificates less vim curl libssl-dev libxslt1.1 wget gpg unzip \
-   && apt-get install -y git build-essential libcurl4-openssl-dev libcurl4 strace dmidecode util-linux  \
+   && apt-get install -y --no-install-recommends \
+   libpq5 ca-certificates less vim curl libssl1.1 libxslt1.1 \
+   libsqlite3-0 libmariadb3 \
+   strace \
+   wget gpg unzip \
+   git build-essential libcurl4-openssl-dev libcurl4 dmidecode util-linux  \
    # --- 条件安装 FFmpeg ---
    && if [ "$INSTALL_FFMPEG" = "true" ]; then \
-   apt-get install -y libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev; \
+   apt-get install -y libavcodec-dev libavformat-dev libavutil-dev libavdevice-dev \
    fi \
    # --- 条件安装 LibreOffice ---
    && if [ "$INSTALL_LIBREOFFICE" = "true" ]; then \
