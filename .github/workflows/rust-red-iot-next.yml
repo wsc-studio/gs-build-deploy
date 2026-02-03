@@ -1,7 +1,10 @@
-name: Build IOT Rust-Red next-rust Project
+name: Build IOT next-rust Project
 run-name: ${{ github.actor }} is Building next-rust Project
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/rust-red-iot-next.yml"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,7 +15,7 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         # dev-shared-ptr 分支
         run: |
-          git clone -b dev-shared-ptr --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/iot/rust-iot-api.git rust-red
+          git clone -b master --single-branch --depth 1 https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/iot/rust-iot-api.git rust-red
           cd rust-red
       # 登录Aliyun Docker Hub，用于push镜像
       - name: Login to Aliyun Docker Hub
