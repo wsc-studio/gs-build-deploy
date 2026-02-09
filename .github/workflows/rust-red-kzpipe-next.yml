@@ -1,10 +1,10 @@
-name: Build IOT next-rust Project
-run-name: ${{ github.actor }} is Building next-rust Project
+name: Build KZPIPE next-rust Project
+run-name: ${{ github.actor }} is Building KZPIPE next-rust Project
 on:
   workflow_dispatch:
   push:
     paths:
-      - ".github/workflows/rust-red-iot-next.yml"
+      - ".github/workflows/rust-red-kzpipe-next.yml"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,7 +17,7 @@ jobs:
         run: |
           # 配置 git 凭证替换，确保子模块也能通过 token 拉取
           git config --global url."https://oauth2:${GITLAB_TOKEN}@git.wsc.tech/".insteadOf "https://git.wsc.tech/"
-          git clone -b master --recursive --single-branch --depth 1 https://git.wsc.tech/iot/rust-iot-api.git rust-red
+          git clone -b master --recursive --single-branch --depth 1 https://git.wsc.tech/kzpipe/rust-kzpipe-api.git rust-red
           cd rust-red
       # 登录Aliyun Docker Hub，用于push镜像
       - name: Login to Aliyun Docker Hub
@@ -43,9 +43,8 @@ jobs:
           file: rust-red/Dockerfile
           platforms: linux/amd64
           push: true
-          # 取名为rust-red-shared，以区分于原rust-red，过渡期使用
-          tags: registry.cn-hangzhou.aliyuncs.com/gskj/rust-iot-api:latest
-          labels: rust-iot-api
+          tags: registry.cn-hangzhou.aliyuncs.com/gskj/rust-kzpipe-api:latest
+          labels: rust-kzpipe-api
   # deploy:
   #   runs-on: ubuntu-latest
   #   needs: build
