@@ -30,6 +30,7 @@ RUN tar zxpf luarocks-3.12.2.tar.gz \
    && luarocks install uuid ${LUA_COMMON_ARGS} \
    && luarocks install luasec ${LUA_COMMON_ARGS} \
    && luarocks install base64 ${LUA_COMMON_ARGS} \
+   && luarocks install bcrypt ${LUA_COMMON_ARGS} \
    && luarocks install md5 ${LUA_COMMON_ARGS} \
    && luarocks install luassert ${LUA_COMMON_ARGS} \
    && luarocks install bit32 ${LUA_COMMON_ARGS} \
