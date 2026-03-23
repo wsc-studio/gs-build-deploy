@@ -17,6 +17,15 @@ RUN apt-get update \
    libevent-dev \
    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# 下载最新稳定版（推荐与 FastDFS 6.07 匹配的 1.0.45 或更高）
+RUN wget https://github.com/happyfish100/libfastcommon/archive/refs/tags/V1.0.45.tar.gz -O /tmp/libfastcommon-1.0.45.tar.gz && \
+   tar -zxf /tmp/libfastcommon-1.0.45.tar.gz -C /tmp/ && \
+   cd /tmp/libfastcommon-1.0.45 && \
+   ./make.sh && \
+   ./make.sh install && \
+   # 清理
+   cd / && rm -rf /tmp/libfastcommon-1.0.45 /tmp/libfastcommon-1.0.45.tar.gz
+
 ENV LUA_COMMON_ARGS="LUA_INCDIR=/usr/include/lua5.4 --force --lua-version=5.4"
 
 # 安装luarocks和Lua模块
@@ -66,14 +75,13 @@ RUN tar zxf mongo-c-driver-1.27.6.tar.gz \
 # 复制 FastDFS 6.07 源码包（放在 Dockerfile 同级目录）
 COPY fastdfs-6.07.tar.gz /tmp/
 # 解压、编译、安装（只安装 client 部分）
+
 RUN tar -zxf /tmp/fastdfs-6.07.tar.gz -C /usr/local/ && \
    cd /usr/local/fastdfs-6.07 && \
    ./make.sh && \
    ./make.sh install && \
-   # 清理源码和临时文件，减小 layer 大小
-   cd / && \
-   rm -rf /usr/local/fastdfs-6.07 /tmp/fastdfs-6.07.tar.gz
-# 在 ./make.sh install 之后添加
-RUN ls -la /usr/bin | grep fdfs || true && \
-   ls -la /usr/local/bin | grep fdfs || true && \
-   find /usr -name "fdfs_*" 2>/dev/null || true 
+   # 调试：输出安装的文件位置
+   echo "=== Installed FastDFS files ===" && \
+   find /usr /usr/local -name "fdfs_*" -type f 2>/dev/null || true && \
+   # 清理源码
+   cd / && rm -rf /usr/local/fastdfs-6.07 /tmp/fastdfs-6.07.tar.gz   
