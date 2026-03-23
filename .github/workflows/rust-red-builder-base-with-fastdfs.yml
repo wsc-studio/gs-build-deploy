@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "Dockerfile.builder.base"
+      - "Dockerfile.builder-with-fastdfs"
       - ".github/workflows/rust-red-builder-base-with-fastdfs.yml"
 jobs:
   build:
@@ -23,7 +23,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.builder.base
+          file: Dockerfile.builder-with-fastdfs
           platforms: linux/amd64
           push: true
           tags: |

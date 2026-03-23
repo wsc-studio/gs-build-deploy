@@ -1,0 +1,55 @@
+name: Build and Push Rust-Red Runtime Base with FastDFS
+permissions:
+  contents: read
+  packages: write
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Dockerfile.runtime-with-fastdfs"
+      - ".github/workflows/rust-red-runtime-base-with-fastdfs.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 定义四种变体
+        variant: [full, no-lo, no-ffmpeg, lite]
+        include:
+          - variant: full
+            lo: "true"
+            ffmpeg: "true"
+          - variant: no-lo
+            lo: "false"
+            ffmpeg: "true"
+          - variant: no-ffmpeg
+            lo: "true"
+            ffmpeg: "false"
+          - variant: lite
+            lo: "false"
+            ffmpeg: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.runtime-with-fastdfs
+          platforms: linux/amd64
+          push: true
+          # 传递构建参数
+          build-args: |
+            INSTALL_LIBREOFFICE=${{ matrix.lo }}
+            INSTALL_FFMPEG=${{ matrix.ffmpeg }}
+          # 动态打标签，例如 rust-red-runtime-base:full, rust-red-runtime-base:lite
+          tags: |
+            ghcr.io/wsc-studio/rust-red-runtime-base-with-fastdfs:${{ matrix.variant }}
+            ghcr.io/wsc-studio/rust-red-runtime-base-with-fastdfs:${{ matrix.variant }}-${{ github.sha }}
+          labels: rust-red-runtime-base-with-fastdfs-${{ matrix.variant }}
