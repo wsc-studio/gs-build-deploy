@@ -73,3 +73,7 @@ RUN tar -zxf /tmp/fastdfs-6.07.tar.gz -C /usr/local/ && \
    # 清理源码和临时文件，减小 layer 大小
    cd / && \
    rm -rf /usr/local/fastdfs-6.07 /tmp/fastdfs-6.07.tar.gz
+# 在 ./make.sh install 之后添加
+RUN ls -la /usr/bin | grep fdfs || true && \
+   ls -la /usr/local/bin | grep fdfs || true && \
+   find /usr -name "fdfs_*" 2>/dev/null || true 
