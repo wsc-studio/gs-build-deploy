@@ -1,0 +1,32 @@
+name: Build and Deploy Rust-Red Builder Base with FastDFS
+permissions:
+  contents: read
+  packages: write
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Dockerfile.builder.base"
+      - ".github/workflows/rust-red-builder-base-with-fastdfs.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.builder.base
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/wsc-studio/rust-red-builder-base-with-fastdfs:latest
+            ghcr.io/wsc-studio/rust-red-builder-base-with-fastdfs:${{ github.sha }}
+          labels: rust-red-builder-base-with-fastdfs
