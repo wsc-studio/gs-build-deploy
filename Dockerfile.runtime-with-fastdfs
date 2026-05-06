@@ -3,7 +3,7 @@ FROM debian:bullseye
 # 定义构建参数，默认为安装所有 (full)
 ARG INSTALL_LIBREOFFICE=true
 ARG INSTALL_FFMPEG=true
-ARG LIBREOFFICE_URL=http://download.documentfoundation.org/libreoffice/stable/25.8.4/deb/x86_64/LibreOffice_25.8.4_Linux_x86-64_deb.tar.gz
+ARG LIBREOFFICE_URL=http://download.documentfoundation.org/libreoffice/stable/25.8.6/deb/x86_64/LibreOffice_25.8.6_Linux_x86-64_deb.tar.gz
 
 # 启用contrib和non-free仓库，设置字体EULA
 RUN sed -i 's/main/main contrib non-free/' /etc/apt/sources.list \
